@@ -1,8 +1,8 @@
 import os
 import json
-import csv
 from openai import OpenAI
 from dotenv import load_dotenv
+from csv_generator import generate_csv
 
 # =========================
 # INIT
@@ -19,26 +19,26 @@ Tu es un expert e-commerce Afrique / Europe.
 Tu dois analyser un produit et décider s'il est pertinent
 de le vendre en ligne.
 
-Réponds STRICTEMENT en JSON valide avec cette structure :
+Réponds STRICTEMENT en JSON valide avec cette structure EXACTE :
 
 {
   "decision": "GO" ou "NO_GO",
-  "raison": "explication courte",
+  "raison": "explication détaillée",
+  "categorie": "categorie du produit",
   "produits_lookalike": [
     {
       "nom": "",
       "description": "",
-      "prix_recommande": 0,
-      "image_url": ""
+      "prix_recommande": 0
     }
   ]
 }
 
 Règles :
 - Si decision = NO_GO → produits_lookalike doit être une liste vide
-- Si decision = GO → exactement 10 produits lookalike
+- Si decision = GO →  10 produits qui peuvent se vendre ensemble avec notre produit
 - Prix en FCFA
-- Descriptions SEO friendly (WordPress)
+- Descriptions SEO friendly pour WordPress / WooCommerce
 """
 
 # =========================
@@ -68,43 +68,25 @@ Analyse le potentiel business (demande, concurrence, marge).
     except json.JSONDecodeError:
         return {
             "decision": "ERREUR",
-            "raison": "Réponse IA invalide",
+            "raison": "Réponse IA non exploitable",
+            "categorie": "",
             "produits_lookalike": []
         }
 
-    # Si GO → générer CSV
-    if data.get("decision") == "GO":
-        generate_csv(data["produits_lookalike"])
+    # Sécurisation des clés
+    decision = data.get("decision", "NO_GO")
+    raison = data.get("raison", "")
+    categorie = data.get("categorie", "")
+    produits = data.get("produits_lookalike", [])
 
-    return data
+    
 
+    return {
+        "produit": nom_produit,
+        "decision": decision,
+        "raison": raison,
+        "categorie": categorie,
+        "produits_lookalike": produits,
+        
+    }
 
-# =========================
-# GENERATION CSV WORDPRESS
-# =========================
-def generate_csv(produits):
-    """
-    Génère un CSV importable directement dans WooCommerce
-    """
-    filename = "produits_wordpress.csv"
-
-    headers = [
-        "Name",
-        "Description",
-        "Regular price",
-        "Images"
-    ]
-
-    with open(filename, mode="w", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        writer.writerow(headers)
-
-        for p in produits:
-            writer.writerow([
-                p["nom"],
-                p["description"],
-                p["prix_recommande"],
-                p["image_url"]
-            ])
-
-    return filename

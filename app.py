@@ -1,49 +1,31 @@
+# app.py
 import streamlit as st
-from ai import analyse_produit, generate_csv
+from ai import analyse_produit
+from csv_generator import generate_csv
 
-st.set_page_config(page_title="Product Go / No-Go IA", layout="centered")
+st.title("🧠 Analyse Produit E-commerce")
 
-st.title("🧠 Analyse Produit IA – MVP")
-st.write("Colle un lien Jumia / Alibaba ou décris un produit.")
+nom_produit = st.text_input("Nom du produit")
+lien = st.text_input("Lien (Jumia / Alibaba)")
 
-# ==========================
-# INPUT UTILISATEUR
-# ==========================
-product_input = st.text_area(
-    "🔗 Lien produit ou description",
-    placeholder="Ex: https://www.jumia.sn/cheveux-naturels..."
-)
-
-# ==========================
-# BOUTON ANALYSE
-# ==========================
-if st.button("Analyser le produit"):
-    if product_input.strip() == "":
-        st.warning("Veuillez entrer un produit.")
+if st.button("Analyser"):
+    if not nom_produit:
+        st.warning("Entre un nom de produit")
     else:
-        with st.spinner("Analyse en cours..."):
-            result = analyse_produit(product_input)
+        result = analyse_produit(nom_produit, lien)
 
-        st.subheader("📊 Résultat de l'analyse")
-        st.json(result)
+        st.subheader("Décision")
+        st.write(result["decision"])
+        st.write(result["raison"])
 
-        # ==========================
-        # SI GO → GENERATE CSV
-        # ==========================
-        if result.get("decision") == "GO":
-            st.success("✅ Produit VALIDÉ – Génération du CSV")
+        if result["decision"] == "GO":
+            csv_file = generate_csv(result["produits_lookalike"])
+            st.success("CSV généré avec succès")
 
-            csv_path = generate_csv(
-                produit_base = product_input,
-                niche=result["niche"]
-            )
-
-            with open(csv_path, "rb") as f:
+            with open(csv_file, "rb") as f:
                 st.download_button(
-                    label="📥 Télécharger le CSV WordPress",
+                    label="📥 Télécharger le CSV WooCommerce",
                     data=f,
-                    file_name="produits_wordpress.csv",
+                    file_name=csv_file,
                     mime="text/csv"
                 )
-        else:
-            st.error("❌ Produit NON recommandé")
