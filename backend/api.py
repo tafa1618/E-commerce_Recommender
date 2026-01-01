@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional, List, Dict
+from datetime import datetime
 import sys
 import os
 
@@ -14,6 +15,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from ai import analyse_produit
 from csv_generator import generate_csv
+from jumia_scraper import scraper_jumia_best_sellers, scraper_jumia_categorie
 
 app = FastAPI(title="E-commerce Recommender API", version="1.0.0")
 
@@ -121,24 +123,83 @@ async def generer_csv(request: CSVRequest):
         raise HTTPException(status_code=500, detail=f"Erreur lors de la génération du CSV: {str(e)}")
 
 
-@app.get("/api/veille-concurrentielle")
-async def veille_concurrentielle():
+@app.get("/api/categories")
+async def get_categories():
     """
-    Endpoint de veille concurrentielle - Analyse des meilleurs articles Jumia.
+    Retourne la liste des catégories disponibles sur Jumia Sénégal.
     
     Returns:
-        Données de veille concurrentielle
+        Liste des catégories avec leur nom et slug
     """
-    # Pour l'instant, retourne simplement le message demandé
-    return {
-        "message": "Meilleurs articles Jumia",
-        "articles": [
-            "Article 1 - Produit phare Jumia",
-            "Article 2 - Top vente",
-            "Article 3 - Tendance du marché"
-        ],
-        "timestamp": "2024-01-01T00:00:00"
-    }
+    categories = [
+        {"slug": "", "nom": "🏠 Toutes catégories (Meilleures ventes)", "description": "Produits les plus populaires"},
+        {"slug": "telephones-tablettes", "nom": "📱 Téléphones & Tablettes", "description": "Smartphones, tablettes et accessoires"},
+        {"slug": "electronique", "nom": "📺 Électronique", "description": "TV, audio, gadgets électroniques"},
+        {"slug": "maison-bureau-electromenager", "nom": "🏡 Maison & Électroménager", "description": "Électroménager, décoration, bureau"},
+        {"slug": "beaute-hygiene-sante", "nom": "💄 Beauté & Hygiène", "description": "Cosmétiques, soins, parfums"},
+        {"slug": "ordinateurs-accessoires-informatique", "nom": "💻 Informatique", "description": "Ordinateurs, accessoires, périphériques"},
+        {"slug": "fashion-mode", "nom": "👗 Mode & Fashion", "description": "Vêtements, chaussures, accessoires mode"},
+        {"slug": "maison-cuisine-jardin", "nom": "🍳 Maison & Cuisine", "description": "Cuisine, jardin, bricolage"},
+        {"slug": "bebe-puericulture", "nom": "👶 Bébé & Puériculture", "description": "Articles pour bébés et enfants"},
+        {"slug": "sports-loisirs", "nom": "⚽ Sports & Loisirs", "description": "Équipements sportifs, jeux, loisirs"},
+        {"slug": "epiceries", "nom": "🛒 Épicerie", "description": "Alimentation, boissons, produits frais"},
+    ]
+    return {"categories": categories}
+
+
+@app.get("/api/veille-concurrentielle")
+async def veille_concurrentielle(categorie: Optional[str] = None, limit: int = 20, tri: Optional[str] = "popularite"):
+    """
+    Endpoint de veille concurrentielle - Scrape les meilleurs articles Jumia.
+    
+    Args:
+        categorie: Catégorie spécifique (optionnel, slug de la catégorie)
+        limit: Nombre maximum de produits (défaut: 20)
+        tri: Type de tri - "popularite" (défaut) ou "prix" ou "remise"
+        
+    Returns:
+        Données de veille concurrentielle avec les produits scrapés
+    """
+    try:
+        if categorie and categorie.strip():
+            produits = scraper_jumia_categorie(categorie.strip(), limit)
+        else:
+            produits = scraper_jumia_best_sellers(limit=limit)
+        
+        # Tri des produits selon le paramètre
+        if tri == "prix":
+            produits = sorted(produits, key=lambda x: x.get('prix', 0))
+        elif tri == "remise":
+            # Trier par remise (produits avec remise en premier, puis par pourcentage décroissant)
+            def get_remise_value(produit):
+                remise = produit.get('remise', '')
+                if not remise:
+                    return 0
+                try:
+                    # Enlever le % et convertir en float
+                    return float(remise.replace('%', '').strip())
+                except:
+                    return 0
+            
+            produits = sorted(produits, key=lambda x: (
+                0 if x.get('remise') else 1,  # Produits avec remise en premier
+                -get_remise_value(x)  # Puis par remise décroissante
+            ))
+        # "popularite" est le tri par défaut (ordre d'apparition sur Jumia)
+        
+        # Nom de la catégorie pour l'affichage
+        categorie_nom = categorie.replace('-', ' ').title() if categorie else "Meilleures ventes"
+        
+        return {
+            "message": f"Meilleurs articles Jumia - {categorie_nom}",
+            "produits": produits,
+            "nombre_produits": len(produits),
+            "categorie": categorie or "toutes",
+            "tri": tri,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors du scraping: {str(e)}")
 
 
 if __name__ == "__main__":
