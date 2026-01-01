@@ -138,6 +138,9 @@ celerybeat.pid
 .env
 __pycache__/
 *.csv
+*.db
+*.sqlite
+*.sqlite3
 
 .envrc
 .venv

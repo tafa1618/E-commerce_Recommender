@@ -1,6 +1,8 @@
 import React, { useState } from 'react'
 import axios from 'axios'
 import VeilleConcurrentielle from './VeilleConcurrentielle'
+import Alibaba from './Alibaba'
+import CreerBoutique from './CreerBoutique'
 import './App.css'
 
 const API_BASE_URL = 'http://localhost:8000'
@@ -211,7 +213,7 @@ function AnalyseProduit() {
 
 // Composant principal avec navigation
 function App() {
-  const [currentPage, setCurrentPage] = useState('analyse') // 'analyse' ou 'veille'
+  const [currentPage, setCurrentPage] = useState('analyse') // 'analyse', 'veille', 'alibaba' ou 'boutique'
 
   return (
     <div>
@@ -229,7 +231,19 @@ function App() {
               className={`nav-link ${currentPage === 'veille' ? 'active' : ''}`}
               onClick={() => setCurrentPage('veille')}
             >
-              🔍 Veille Concurrentielle
+              🔍 Veille Jumia
+            </button>
+            <button
+              className={`nav-link ${currentPage === 'alibaba' ? 'active' : ''}`}
+              onClick={() => setCurrentPage('alibaba')}
+            >
+              🏭 Veille Alibaba
+            </button>
+            <button
+              className={`nav-link ${currentPage === 'boutique' ? 'active' : ''}`}
+              onClick={() => setCurrentPage('boutique')}
+            >
+              🛍️ Créer une Boutique
             </button>
           </div>
         </div>
@@ -237,6 +251,8 @@ function App() {
 
       {currentPage === 'analyse' && <AnalyseProduit />}
       {currentPage === 'veille' && <VeilleConcurrentielle />}
+      {currentPage === 'alibaba' && <Alibaba />}
+      {currentPage === 'boutique' && <CreerBoutique />}
     </div>
   )
 }

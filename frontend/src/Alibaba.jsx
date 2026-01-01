@@ -4,12 +4,13 @@ import './App.css'
 
 const API_BASE_URL = 'http://localhost:8000'
 
-function VeilleConcurrentielle() {
+function Alibaba() {
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
   const [categories, setCategories] = useState([])
   const [selectedCategorie, setSelectedCategorie] = useState('')
+  const [termeRecherche, setTermeRecherche] = useState('')
   const [selectedTri, setSelectedTri] = useState('popularite')
   const [limit, setLimit] = useState(20)
   const [addedMessage, setAddedMessage] = useState(null)
@@ -48,7 +49,7 @@ function VeilleConcurrentielle() {
   useEffect(() => {
     const loadCategories = async () => {
       try {
-        const response = await axios.get(`${API_BASE_URL}/api/categories`)
+        const response = await axios.get(`${API_BASE_URL}/api/categories-alibaba`)
         setCategories(response.data.categories || [])
       } catch (err) {
         console.error('Erreur chargement catégories:', err)
@@ -68,11 +69,14 @@ function VeilleConcurrentielle() {
       if (selectedCategorie) {
         params.categorie = selectedCategorie
       }
+      if (termeRecherche && termeRecherche.trim()) {
+        params.terme = termeRecherche.trim()
+      }
       if (selectedTri) {
         params.tri = selectedTri
       }
 
-      const response = await axios.get(`${API_BASE_URL}/api/veille-concurrentielle`, { params })
+      const response = await axios.get(`${API_BASE_URL}/api/veille-alibaba`, { params })
       setData(response.data)
     } catch (err) {
       console.error('Erreur API:', err)
@@ -88,13 +92,11 @@ function VeilleConcurrentielle() {
     }
   }
 
-  // Ne pas charger automatiquement au montage - l'utilisateur doit cliquer sur "Analyser"
-
   return (
     <div className="app">
       <div className="container">
-        <h1>🔍 Veille Concurrentielle</h1>
-        <p className="subtitle">Analysez les meilleurs articles de Jumia Sénégal</p>
+        <h1>🏭 Veille Alibaba</h1>
+        <p className="subtitle">Analysez les produits Alibaba pour l'import et la revente</p>
 
         {/* Formulaire de filtres */}
         <div className="filters-section">
@@ -104,7 +106,10 @@ function VeilleConcurrentielle() {
               <select
                 id="categorie"
                 value={selectedCategorie}
-                onChange={(e) => setSelectedCategorie(e.target.value)}
+                onChange={(e) => {
+                  setSelectedCategorie(e.target.value)
+                  setTermeRecherche('') // Réinitialiser la recherche si on change de catégorie
+                }}
                 disabled={loading}
                 className="filter-select"
               >
@@ -114,6 +119,23 @@ function VeilleConcurrentielle() {
                   </option>
                 ))}
               </select>
+            </div>
+
+            <div className="filter-group">
+              <label htmlFor="recherche">Recherche (optionnel)</label>
+              <input
+                id="recherche"
+                type="text"
+                value={termeRecherche}
+                onChange={(e) => {
+                  setTermeRecherche(e.target.value)
+                  setSelectedCategorie('') // Réinitialiser la catégorie si on fait une recherche
+                }}
+                placeholder="Ex: smartphone, t-shirt..."
+                disabled={loading}
+                className="filter-select"
+                style={{ padding: '10px 12px' }}
+              />
             </div>
 
             <div className="filter-group">
@@ -127,7 +149,7 @@ function VeilleConcurrentielle() {
               >
                 <option value="popularite">Popularité</option>
                 <option value="prix">Prix (croissant)</option>
-                <option value="remise">Meilleure remise</option>
+                <option value="moq">MOQ (Minimum Order Quantity)</option>
               </select>
             </div>
 
@@ -161,7 +183,7 @@ function VeilleConcurrentielle() {
                     Chargement...
                   </>
                 ) : (
-                  '🔍 Analyser'
+                  '🔍 Analyser Alibaba'
                 )}
               </button>
             </div>
@@ -171,7 +193,7 @@ function VeilleConcurrentielle() {
         {loading && (
           <div className="loading-container">
             <span className="spinner"></span>
-            <p>Chargement des données...</p>
+            <p>Chargement des données depuis Alibaba...</p>
           </div>
         )}
 
@@ -203,19 +225,19 @@ function VeilleConcurrentielle() {
                         <img src={produit.image} alt={produit.nom} className="produit-image" />
                       )}
                       <div className="produit-info">
-                        {produit.remise && (
-                          <span className="produit-remise">-{produit.remise}</span>
-                        )}
                         <h3 className="produit-nom">{produit.nom}</h3>
                         {produit.marque && (
                           <p className="produit-marque">🏷️ {produit.marque}</p>
                         )}
                         <div className="produit-details">
-                          <span className="produit-prix">{produit.prix_texte || `${produit.prix} FCFA`}</span>
+                          <span className="produit-prix">{produit.prix_texte || `${produit.prix} USD`}</span>
                           {produit.note && produit.note !== "N/A" && (
                             <span className="produit-note">⭐ {produit.note}</span>
                           )}
                         </div>
+                        {produit.moq && (
+                          <p className="produit-moq">📦 MOQ: {produit.moq}</p>
+                        )}
                         {produit.categorie && (
                           <p className="produit-categorie">📂 {produit.categorie}</p>
                         )}
@@ -227,7 +249,7 @@ function VeilleConcurrentielle() {
                               rel="noopener noreferrer"
                               className="produit-lien"
                             >
-                              Voir sur Jumia →
+                              Voir sur Alibaba →
                             </a>
                           )}
                           <button
@@ -244,7 +266,7 @@ function VeilleConcurrentielle() {
                 </div>
               ) : (
                 <div className="info-message">
-                  <p>Aucun produit trouvé. Essayez une autre catégorie.</p>
+                  <p>Aucun produit trouvé. Essayez une autre catégorie ou un autre terme de recherche.</p>
                 </div>
               )}
             </div>
@@ -253,7 +275,8 @@ function VeilleConcurrentielle() {
 
         {!loading && !data && !error && (
           <div className="info-message">
-            <p>👆 Sélectionnez une catégorie et cliquez sur "Analyser" pour commencer</p>
+            <p>👆 Sélectionnez une catégorie ou entrez un terme de recherche, puis cliquez sur "Analyser Alibaba"</p>
+            <p className="tip">💡 L'idée : Trouvez des produits à importer depuis Alibaba et comparez avec Jumia pour identifier les opportunités</p>
           </div>
         )}
       </div>
@@ -261,5 +284,5 @@ function VeilleConcurrentielle() {
   )
 }
 
-export default VeilleConcurrentielle
+export default Alibaba
 

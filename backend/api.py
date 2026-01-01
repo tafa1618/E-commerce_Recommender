@@ -9,6 +9,7 @@ from typing import Optional, List, Dict
 from datetime import datetime
 import sys
 import os
+import re
 
 # Ajouter le répertoire parent au path pour importer les modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -16,6 +17,25 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from ai import analyse_produit
 from csv_generator import generate_csv
 from jumia_scraper import scraper_jumia_best_sellers, scraper_jumia_categorie
+
+# Import Alibaba - Essayer Apify d'abord, sinon fallback sur scraper
+from alibaba_scraper import scraper_alibaba_best_sellers, scraper_alibaba_categorie, scraper_alibaba_recherche
+
+# Import système de cache DB
+from database import get_products_from_db, save_products_to_db, init_database
+
+try:
+    from alibaba_apify import search_products_apify
+    ALIBABA_APIFY_AVAILABLE = True
+except ImportError:
+    ALIBABA_APIFY_AVAILABLE = False
+    print("⚠️ Module alibaba_apify non disponible, utilisation du scraper uniquement")
+
+# Initialiser la DB au démarrage
+init_database()
+
+# Import depuis le même répertoire (backend)
+from boutique_csv import generate_boutique_csv_wordpress, generate_boutique_csv_shopify
 
 app = FastAPI(title="E-commerce Recommender API", version="1.0.0")
 
@@ -54,6 +74,11 @@ class AnalyseResponse(BaseModel):
 
 class CSVRequest(BaseModel):
     produits: List[Dict]
+
+
+class BoutiqueCSVRequest(BaseModel):
+    produits: List[Dict]
+    export_type: str = "wordpress"  # "wordpress" ou "shopify"
 
 
 # =========================
@@ -147,6 +172,31 @@ async def get_categories():
     return {"categories": categories}
 
 
+@app.get("/api/categories-alibaba")
+async def get_categories_alibaba():
+    """
+    Retourne la liste des catégories disponibles sur Alibaba.
+    
+    Returns:
+        Liste des catégories avec leur nom et slug
+    """
+    # Liste de catégories Alibaba
+    categories = [
+        {"slug": "", "nom": "🏠 Toutes catégories (Meilleures ventes)", "description": "Produits les plus populaires"},
+        {"slug": "electronics", "nom": "📱 Électronique", "description": "Électronique, gadgets, accessoires"},
+        {"slug": "home-garden", "nom": "🏡 Maison & Jardin", "description": "Décoration, mobilier, jardin"},
+        {"slug": "apparel", "nom": "👗 Mode & Vêtements", "description": "Vêtements, chaussures, accessoires"},
+        {"slug": "beauty-personal-care", "nom": "💄 Beauté & Soins", "description": "Cosmétiques, soins personnels"},
+        {"slug": "computer-communication", "nom": "💻 Informatique & Communication", "description": "Ordinateurs, téléphones, accessoires"},
+        {"slug": "sports-entertainment", "nom": "⚽ Sports & Divertissement", "description": "Équipements sportifs, jeux"},
+        {"slug": "toys-hobbies", "nom": "🧸 Jouets & Loisirs", "description": "Jouets, hobbies, jeux"},
+        {"slug": "automotive", "nom": "🚗 Automobile", "description": "Pièces auto, accessoires"},
+        {"slug": "health-medical", "nom": "🏥 Santé & Médical", "description": "Équipements médicaux, santé"},
+        {"slug": "machinery", "nom": "⚙️ Machines & Équipements", "description": "Machines industrielles, équipements"},
+    ]
+    return {"categories": categories}
+
+
 @app.get("/api/veille-concurrentielle")
 async def veille_concurrentielle(categorie: Optional[str] = None, limit: int = 20, tri: Optional[str] = "popularite"):
     """
@@ -200,6 +250,162 @@ async def veille_concurrentielle(categorie: Optional[str] = None, limit: int = 2
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur lors du scraping: {str(e)}")
+
+
+@app.get("/api/veille-alibaba")
+async def veille_alibaba(categorie: Optional[str] = None, terme: Optional[str] = None, limit: int = 20, tri: Optional[str] = "popularite"):
+    """
+    Endpoint de veille concurrentielle Alibaba - Utilise l'API officielle ou le scraper.
+    
+    Args:
+        categorie: Catégorie spécifique (optionnel, ID ou slug de la catégorie)
+        terme: Terme de recherche (optionnel)
+        limit: Nombre maximum de produits (défaut: 20)
+        tri: Type de tri - "popularite" (défaut) ou "prix" ou "moq"
+        
+    Returns:
+        Données de veille concurrentielle avec les produits
+    """
+    try:
+        # 1. Vérifier d'abord le cache DB (économise les appels Apify)
+        recherche_type = ""
+        recherche_valeur = ""
+        
+        if terme and terme.strip():
+            recherche_type = "keyword"
+            recherche_valeur = terme.strip()
+        elif categorie and categorie.strip():
+            recherche_type = "category"
+            recherche_valeur = categorie.strip()
+        else:
+            recherche_type = "general"
+            recherche_valeur = ""
+        
+        produits = get_products_from_db(recherche_type, recherche_valeur, limit)
+        
+        # 2. Si pas de cache, utiliser Apify ou scraper
+        if not produits:
+            print(f"💾 Cache vide, lancement d'un nouveau scraping...")
+            
+            if ALIBABA_APIFY_AVAILABLE:
+                try:
+                    if terme and terme.strip():
+                        produits = search_products_apify(keyword=terme.strip(), limit=limit)
+                    elif categorie and categorie.strip():
+                        produits = search_products_apify(category=categorie.strip(), limit=limit)
+                    else:
+                        produits = search_products_apify(keyword="", limit=limit)
+                    
+                    # Sauvegarder dans le cache pour la prochaine fois
+                    if produits:
+                        save_products_to_db(produits, recherche_type, recherche_valeur)
+                        print(f"💾 {len(produits)} produits sauvegardés dans le cache")
+                    
+                except ValueError as e:
+                    # Token Apify non configuré, utiliser le scraper
+                    print(f"⚠️ Apify non configuré: {e}")
+                    print("💡 Utilisation du scraper en fallback")
+                    if categorie and categorie.strip():
+                        produits = scraper_alibaba_categorie(categorie.strip(), limit)
+                    elif terme and terme.strip():
+                        produits = scraper_alibaba_recherche(terme=terme.strip(), limit=limit)
+                    else:
+                        produits = scraper_alibaba_best_sellers(limit=limit)
+                except Exception as e:
+                    # Erreur Apify, utiliser le scraper en fallback
+                    print(f"⚠️ Erreur Apify: {e}")
+                    print("💡 Utilisation du scraper en fallback")
+                    if categorie and categorie.strip():
+                        produits = scraper_alibaba_categorie(categorie.strip(), limit)
+                    elif terme and terme.strip():
+                        produits = scraper_alibaba_recherche(terme=terme.strip(), limit=limit)
+                    else:
+                        produits = scraper_alibaba_best_sellers(limit=limit)
+            else:
+                # Utiliser le scraper si Apify n'est pas disponible
+                if categorie and categorie.strip():
+                    produits = scraper_alibaba_categorie(categorie.strip(), limit)
+                elif terme and terme.strip():
+                    produits = scraper_alibaba_recherche(terme=terme.strip(), limit=limit)
+                else:
+                    produits = scraper_alibaba_best_sellers(limit=limit)
+        else:
+            print(f"✅ Utilisation du cache (économise un appel Apify)")
+        
+        # Tri des produits selon le paramètre
+        if tri == "prix":
+            produits = sorted(produits, key=lambda x: x.get('prix', 0))
+        elif tri == "moq":
+            # Trier par MOQ (Minimum Order Quantity) - produits avec MOQ en premier
+            def get_moq_value(produit):
+                moq = produit.get('moq', '')
+                if not moq:
+                    return float('inf')  # Produits sans MOQ à la fin
+                try:
+                    # Extraire le nombre du MOQ
+                    moq_match = re.search(r'(\d+)', moq)
+                    if moq_match:
+                        return int(moq_match.group(1))
+                    return float('inf')
+                except:
+                    return float('inf')
+            
+            produits = sorted(produits, key=lambda x: (
+                0 if x.get('moq') else 1,  # Produits avec MOQ en premier
+                get_moq_value(x)  # Puis par MOQ croissant
+            ))
+        # "popularite" est le tri par défaut (ordre d'apparition sur Alibaba)
+        
+        # Nom de la catégorie pour l'affichage
+        categorie_nom = categorie.replace('-', ' ').title() if categorie else (terme if terme else "Meilleures ventes")
+        
+        return {
+            "message": f"Produits Alibaba - {categorie_nom}",
+            "produits": produits,
+            "nombre_produits": len(produits),
+            "categorie": categorie or terme or "toutes",
+            "tri": tri,
+            "source": "Alibaba",
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors du scraping Alibaba: {str(e)}")
+
+
+@app.post("/api/generate-boutique-csv")
+async def generer_boutique_csv(request: BoutiqueCSVRequest):
+    """
+    Génère un fichier CSV pour créer une boutique (WordPress/WooCommerce ou Shopify).
+    
+    Args:
+        request: Requête contenant la liste des produits et le type d'export
+        
+    Returns:
+        Fichier CSV téléchargeable
+    """
+    try:
+        if not request.produits or len(request.produits) == 0:
+            raise HTTPException(status_code=400, detail="Aucun produit à exporter")
+        
+        # Générer le CSV selon le type
+        if request.export_type == "shopify":
+            csv_file = generate_boutique_csv_shopify(request.produits)
+        else:  # wordpress par défaut
+            csv_file = generate_boutique_csv_wordpress(request.produits)
+        
+        if not os.path.exists(csv_file):
+            raise HTTPException(status_code=404, detail="Fichier CSV non trouvé")
+        
+        return FileResponse(
+            csv_file,
+            media_type="text/csv",
+            filename=csv_file,
+            headers={"Content-Disposition": f"attachment; filename={csv_file}"}
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la génération du CSV: {str(e)}")
 
 
 if __name__ == "__main__":
