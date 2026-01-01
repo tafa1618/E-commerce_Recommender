@@ -16,7 +16,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from ai import analyse_produit
 from csv_generator import generate_csv
-from jumia_scraper import scraper_jumia_best_sellers, scraper_jumia_categorie
+from jumia_scraper import scraper_jumia_best_sellers, scraper_jumia_categorie, scraper_jumia_recherche
 
 # Import Alibaba - Essayer Apify d'abord, sinon fallback sur scraper
 from alibaba_scraper import scraper_alibaba_best_sellers, scraper_alibaba_categorie, scraper_alibaba_recherche
@@ -36,6 +36,7 @@ init_database()
 
 # Import depuis le même répertoire (backend)
 from boutique_csv import generate_boutique_csv_wordpress, generate_boutique_csv_shopify
+from marketing import generer_descriptif_marketing, generer_descriptifs_batch, sauvegarder_campagne, get_campagnes
 
 app = FastAPI(title="E-commerce Recommender API", version="1.0.0")
 
@@ -79,6 +80,22 @@ class CSVRequest(BaseModel):
 class BoutiqueCSVRequest(BaseModel):
     produits: List[Dict]
     export_type: str = "wordpress"  # "wordpress" ou "shopify"
+
+
+class MarketingDescriptionRequest(BaseModel):
+    produit: Dict
+    style: Optional[str] = "attractif"  # "attractif", "professionnel", "vendeur"
+
+
+class MarketingBatchRequest(BaseModel):
+    produits: List[Dict]
+    style: Optional[str] = "attractif"
+
+
+class CampaignRequest(BaseModel):
+    nom_campagne: str
+    produits: List[Dict]
+    descriptifs: List[Dict]
 
 
 # =========================
@@ -198,12 +215,13 @@ async def get_categories_alibaba():
 
 
 @app.get("/api/veille-concurrentielle")
-async def veille_concurrentielle(categorie: Optional[str] = None, limit: int = 20, tri: Optional[str] = "popularite"):
+async def veille_concurrentielle(categorie: Optional[str] = None, terme: Optional[str] = None, limit: int = 20, tri: Optional[str] = "popularite"):
     """
     Endpoint de veille concurrentielle - Scrape les meilleurs articles Jumia.
     
     Args:
         categorie: Catégorie spécifique (optionnel, slug de la catégorie)
+        terme: Terme de recherche (optionnel)
         limit: Nombre maximum de produits (défaut: 20)
         tri: Type de tri - "popularite" (défaut) ou "prix" ou "remise"
         
@@ -211,9 +229,14 @@ async def veille_concurrentielle(categorie: Optional[str] = None, limit: int = 2
         Données de veille concurrentielle avec les produits scrapés
     """
     try:
-        if categorie and categorie.strip():
+        if terme and terme.strip():
+            # Recherche par terme avec fuzzy search activé
+            produits = scraper_jumia_recherche(terme.strip(), limit, use_fuzzy=True)
+        elif categorie and categorie.strip():
+            # Recherche par catégorie
             produits = scraper_jumia_categorie(categorie.strip(), limit)
         else:
+            # Meilleures ventes
             produits = scraper_jumia_best_sellers(limit=limit)
         
         # Tri des produits selon le paramètre
@@ -237,14 +260,23 @@ async def veille_concurrentielle(categorie: Optional[str] = None, limit: int = 2
             ))
         # "popularite" est le tri par défaut (ordre d'apparition sur Jumia)
         
-        # Nom de la catégorie pour l'affichage
-        categorie_nom = categorie.replace('-', ' ').title() if categorie else "Meilleures ventes"
+        # Nom de la catégorie ou terme pour l'affichage
+        if terme and terme.strip():
+            categorie_nom = terme.strip()
+            message = f"Résultats de recherche Jumia - {categorie_nom}"
+        elif categorie:
+            categorie_nom = categorie.replace('-', ' ').title()
+            message = f"Meilleurs articles Jumia - {categorie_nom}"
+        else:
+            categorie_nom = "Meilleures ventes"
+            message = f"Meilleurs articles Jumia - {categorie_nom}"
         
         return {
-            "message": f"Meilleurs articles Jumia - {categorie_nom}",
+            "message": message,
             "produits": produits,
             "nombre_produits": len(produits),
             "categorie": categorie or "toutes",
+            "terme": terme or "",
             "tri": tri,
             "timestamp": datetime.now().isoformat()
         }
@@ -406,6 +438,103 @@ async def generer_boutique_csv(request: BoutiqueCSVRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur lors de la génération du CSV: {str(e)}")
+
+
+# =========================
+# ENDPOINTS MARKETING
+# =========================
+@app.post("/api/marketing/generate-description")
+async def generate_marketing_description(request: MarketingDescriptionRequest):
+    """
+    Génère un descriptif marketing attractif pour un produit.
+    Utilise le cache pour éviter les appels API répétés.
+    
+    Args:
+        request: Requête contenant le produit et le style
+        
+    Returns:
+        Descriptif marketing avec titre, description et hashtags
+    """
+    try:
+        descriptif = generer_descriptif_marketing(request.produit, request.style)
+        return {
+            "success": True,
+            "descriptif": descriptif,
+            "from_cache": descriptif.get("from_cache", False)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la génération du descriptif: {str(e)}")
+
+
+@app.post("/api/marketing/generate-batch")
+async def generate_marketing_batch(request: MarketingBatchRequest):
+    """
+    Génère des descriptifs marketing pour plusieurs produits en batch.
+    Optimisé pour utiliser le cache au maximum.
+    
+    Args:
+        request: Requête contenant la liste de produits et le style
+        
+    Returns:
+        Liste de descriptifs pour chaque produit
+    """
+    try:
+        resultats = generer_descriptifs_batch(request.produits, request.style)
+        return {
+            "success": True,
+            "resultats": resultats,
+            "nombre_produits": len(resultats)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la génération batch: {str(e)}")
+
+
+@app.post("/api/marketing/campaign")
+async def save_campaign(request: CampaignRequest):
+    """
+    Sauvegarde une campagne Facebook dans la base de données.
+    
+    Args:
+        request: Requête contenant le nom de la campagne, les produits et descriptifs
+        
+    Returns:
+        ID de la campagne créée
+    """
+    try:
+        campagne_id = sauvegarder_campagne(
+            request.nom_campagne,
+            request.produits,
+            request.descriptifs
+        )
+        if campagne_id:
+            return {
+                "success": True,
+                "campagne_id": campagne_id,
+                "message": f"Campagne '{request.nom_campagne}' sauvegardée avec succès"
+            }
+        else:
+            raise HTTPException(status_code=500, detail="Erreur lors de la sauvegarde de la campagne")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la sauvegarde: {str(e)}")
+
+
+@app.get("/api/marketing/campaigns")
+async def get_all_campaigns():
+    """
+    Récupère toutes les campagnes sauvegardées.
+    
+    Returns:
+        Liste des campagnes
+    """
+    try:
+        campagnes = get_campagnes()
+        return {
+            "success": True,
+            "campagnes": campagnes,
+            "nombre_campagnes": len(campagnes)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération: {str(e)}")
 
 
 if __name__ == "__main__":

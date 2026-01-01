@@ -7,6 +7,11 @@ import json
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 import os
+import sys
+
+# Configurer l'encodage UTF-8 pour Windows
+if sys.platform == 'win32':
+    sys.stdout.reconfigure(encoding='utf-8')
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "alibaba_cache.db")
 CACHE_DURATION_DAYS = 7  # Durée de validité du cache (7 jours)

@@ -193,3 +193,111 @@ def scraper_jumia_categorie(categorie: str, limit: int = 20) -> List[Dict]:
     """
     return scraper_jumia_best_sellers(categorie=categorie, limit=limit)
 
+
+def scraper_jumia_recherche(terme: str, limit: int = 20, use_fuzzy: bool = True) -> List[Dict]:
+    """
+    Scrape les résultats de recherche Jumia pour un terme donné.
+    Utilise une recherche fuzzy si activée pour améliorer les résultats.
+    
+    Args:
+        terme: Terme de recherche
+        limit: Nombre maximum de produits à récupérer
+        use_fuzzy: Utiliser la recherche fuzzy (défaut: True)
+        
+    Returns:
+        Liste de dictionnaires contenant les données des produits
+    """
+    if use_fuzzy:
+        # Utiliser la recherche fuzzy
+        from fuzzy_search import fuzzy_search_jumia
+        return fuzzy_search_jumia(terme, scraper_jumia_recherche_simple, limit)
+    else:
+        return scraper_jumia_recherche_simple(terme, limit)
+
+
+def scraper_jumia_recherche_simple(terme: str, limit: int = 20) -> List[Dict]:
+    """
+    Scrape les résultats de recherche Jumia pour un terme donné (sans fuzzy).
+    
+    Args:
+        terme: Terme de recherche
+        limit: Nombre maximum de produits à récupérer
+        
+    Returns:
+        Liste de dictionnaires contenant les données des produits
+    """
+    produits = []
+    
+    try:
+        # URL de recherche Jumia - plusieurs formats possibles
+        terme_clean = terme.strip()
+        terme_encoded = terme_clean.replace(' ', '+')
+        
+        # Essayer plusieurs formats d'URL de recherche
+        urls_a_essayer = [
+            f"https://www.jumia.sn/catalog/?q={terme_encoded}",
+            f"https://www.jumia.sn/catalog/?q={terme_clean}",
+            f"https://www.jumia.sn/catalog/?q={terme_encoded}&page=1",
+        ]
+        
+        for url in urls_a_essayer:
+            logger.info(f"Recherche Jumia: {url}")
+            
+            try:
+                # Requête avec headers
+                response = requests.get(url, headers=HEADERS, timeout=15)
+                response.raise_for_status()
+                
+                # Parser le HTML
+                soup = BeautifulSoup(response.content, 'html.parser')
+                
+                # Sélecteurs pour les produits Jumia - plusieurs sélecteurs possibles
+                produits_elements = []
+                
+                # Sélecteur principal pour les pages de recherche
+                produits_elements = soup.find_all('article', class_='prd', limit=limit * 2)  # Prendre plus pour filtrer
+                
+                # Si pas de résultats, essayer d'autres sélecteurs
+                if not produits_elements:
+                    # Essayer les liens de produits
+                    produits_elements = soup.find_all('a', {'data-name': True}, limit=limit * 2)
+                    # Prendre les parents
+                    produits_elements = [elem.find_parent('article') or elem.find_parent('div') for elem in produits_elements if elem.find_parent('article') or elem.find_parent('div')]
+                
+                if not produits_elements:
+                    # Essayer de trouver les produits par structure
+                    produits_elements = soup.select('article.prd, .prd, [data-name]', limit=limit * 2)
+                
+                # Essayer aussi les sélecteurs spécifiques aux pages de recherche
+                if not produits_elements:
+                    produits_elements = soup.select('.sku, .product-item, .item, [data-sku]', limit=limit * 2)
+                
+                if produits_elements:
+                    logger.info(f"Trouvé {len(produits_elements)} éléments produits")
+                    
+                    for element in produits_elements:
+                        try:
+                            produit = extraire_donnees_produit(element)
+                            if produit:
+                                produits.append(produit)
+                                if len(produits) >= limit:
+                                    break
+                        except Exception as e:
+                            logger.error(f"Erreur extraction produit: {e}")
+                            continue
+                    
+                    # Si on a des résultats, on s'arrête
+                    if produits:
+                        break
+                        
+            except requests.exceptions.RequestException as e:
+                logger.warning(f"Erreur requête pour {url}: {e}")
+                continue
+        
+        logger.info(f"Produits trouvés pour '{terme}': {len(produits)}")
+        
+    except Exception as e:
+        logger.error(f"Erreur scraping recherche Jumia: {e}")
+    
+    return produits
+

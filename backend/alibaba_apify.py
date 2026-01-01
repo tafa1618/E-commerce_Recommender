@@ -5,6 +5,7 @@ Documentation: https://docs.apify.com/
 """
 import requests
 import time
+import re
 from typing import List, Dict, Optional
 import os
 from dotenv import load_dotenv
@@ -118,20 +119,124 @@ def search_products_apify(
         print(f"📦 {len(results)} résultats récupérés depuis Apify")
         
         # 4. Convertir les résultats au format attendu
+        # Apify peut retourner différentes structures, on essaie plusieurs clés possibles
         for item in results[:limit]:
+            # Nom du produit - essayer plusieurs clés possibles
+            nom = (
+                item.get("title") or 
+                item.get("name") or 
+                item.get("productName") or 
+                item.get("productTitle") or
+                item.get("subject") or
+                "Produit sans nom"
+            )
+            
+            # Prix - gérer différents formats
+            prix = 0.0
+            prix_texte = "Prix sur demande"
+            
+            price_data = item.get("price")
+            if price_data:
+                if isinstance(price_data, dict):
+                    prix = float(price_data.get("value", 0) or price_data.get("amount", 0) or 0)
+                    prix_texte = price_data.get("text") or price_data.get("priceText") or f"${prix:.2f}"
+                elif isinstance(price_data, (int, float)):
+                    prix = float(price_data)
+                    prix_texte = f"${prix:.2f}"
+                elif isinstance(price_data, str):
+                    prix_texte = price_data
+                    # Essayer d'extraire un nombre
+                    prix_match = re.search(r'[\d.]+', price_data.replace(',', ''))
+                    if prix_match:
+                        prix = float(prix_match.group())
+            
+            # Si pas de prix trouvé, essayer priceText directement
+            if not prix_texte or prix_texte == "Prix sur demande":
+                prix_texte = item.get("priceText") or item.get("priceRange") or "Prix sur demande"
+            
+            # Lien/URL
+            lien = (
+                item.get("url") or 
+                item.get("productUrl") or 
+                item.get("link") or
+                item.get("href") or
+                ""
+            )
+            
+            # Image - peut être une liste ou une string
+            image = ""
+            image_data = item.get("imageUrl") or item.get("image") or item.get("images")
+            if isinstance(image_data, list) and len(image_data) > 0:
+                image = image_data[0]
+            elif isinstance(image_data, str):
+                image = image_data
+            
+            # Marque/Brand
+            marque = (
+                item.get("brand") or 
+                item.get("brandName") or 
+                item.get("manufacturer") or
+                item.get("vendor") or
+                ""
+            )
+            
+            # Catégorie
+            categorie = (
+                item.get("category") or 
+                item.get("categoryName") or 
+                item.get("productCategory") or
+                ""
+            )
+            
+            # Note/Rating
+            note = "N/A"
+            rating_data = item.get("rating") or item.get("ratingValue") or item.get("score")
+            if rating_data:
+                if isinstance(rating_data, (int, float)):
+                    note = str(rating_data)
+                else:
+                    note = str(rating_data)
+            
+            # MOQ (Minimum Order Quantity)
+            moq = (
+                item.get("moq") or 
+                item.get("minOrderQuantity") or 
+                item.get("minimumOrder") or
+                item.get("minOrder") or
+                "N/A"
+            )
+            
+            # Supplier
+            supplier = (
+                item.get("supplierName") or 
+                item.get("supplier") or 
+                item.get("vendorName") or
+                item.get("companyName") or
+                ""
+            )
+            
+            # Discount
+            discount = (
+                item.get("discount") or 
+                item.get("discountText") or 
+                item.get("sale") or
+                ""
+            )
+            
             produit = {
-                "nom": item.get("title", "Produit sans nom"),
-                "prix": float(item.get("price", {}).get("value", 0)) if isinstance(item.get("price"), dict) else float(item.get("price", 0)),
-                "prix_texte": item.get("priceText", f"${item.get('price', {}).get('value', 0) if isinstance(item.get('price'), dict) else item.get('price', 0)}"),
-                "lien": item.get("url", ""),
-                "image": item.get("imageUrl", ""),
-                "marque": item.get("brand", ""),
-                "categorie": item.get("category", ""),
-                "note": str(item.get("rating", "N/A")),
-                "moq": item.get("moq", "N/A"),
+                "nom": nom,
+                "prix": prix,
+                "prix_texte": prix_texte,
+                "lien": lien,
+                "image": image,
+                "marque": marque,
+                "categorie": categorie,
+                "note": note,
+                "moq": moq,
                 "source": "Alibaba (Apify)",
-                "supplier": item.get("supplierName", ""),
-                "discount": item.get("discount", ""),
+                "supplier": supplier,
+                "discount": discount,
+                "product_id": item.get("productId") or item.get("id") or "",
             }
             produits.append(produit)
         
