@@ -9,21 +9,63 @@ function CreerBoutique() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [exportType, setExportType] = useState('wordpress')
+  
+  // États pour la sélection par catégorie
+  const [selectedCategorie, setSelectedCategorie] = useState('')
+  const [produitsDisponibles, setProduitsDisponibles] = useState([])
+  const [loadingProduits, setLoadingProduits] = useState(false)
+  const [categories, setCategories] = useState([])
+  const [nombreProduits, setNombreProduits] = useState(20)
+  
+  // États pour l'ajout manuel
+  const [showManualAdd, setShowManualAdd] = useState(false)
+  const [manualProduit, setManualProduit] = useState({
+    nom: '',
+    prix_texte: '',
+    image: '',
+    lien: '',
+    categorie: '',
+    marque: ''
+  })
+  const [isDragging, setIsDragging] = useState(false)
+  const [imagePreview, setImagePreview] = useState('')
+  const fileInputRef = React.useRef(null)
+  
+  // États pour les descriptions SEO
+  const [descriptions, setDescriptions] = useState({})
+  const [generatingDescriptions, setGeneratingDescriptions] = useState(false)
+  
+  // États pour Google Trends
+  const [showTrends, setShowTrends] = useState(false)
+  const [trendsKeyword, setTrendsKeyword] = useState('')
+  const [trendsData, setTrendsData] = useState(null)
+  const [trendsLoading, setTrendsLoading] = useState(false)
+  const [trendsError, setTrendsError] = useState(null)
+  const [trendsProducts, setTrendsProducts] = useState([])
 
   // Fonction pour charger les produits depuis localStorage
   const chargerProduits = () => {
+    console.log('🔄 Chargement des produits depuis localStorage...')
     const produitsSauvegardes = localStorage.getItem('boutique_produits')
     if (produitsSauvegardes) {
       try {
         const produitsParses = JSON.parse(produitsSauvegardes)
+        console.log(`✅ ${produitsParses.length} produits chargés depuis localStorage`)
         setProduits(produitsParses)
       } catch (e) {
-        console.error('Erreur chargement produits:', e)
+        console.error('❌ Erreur chargement produits:', e)
+        setProduits([])
       }
     } else {
+      console.log('ℹ️ Aucun produit dans localStorage')
       setProduits([])
     }
   }
+
+  // Charger les catégories au montage
+  useEffect(() => {
+    loadCategories()
+  }, [])
 
   // Charger les produits au montage et quand la page devient visible
   useEffect(() => {
@@ -45,12 +87,23 @@ function CreerBoutique() {
 
     // Écouter l'événement personnalisé déclenché quand un produit est ajouté
     const handleBoutiqueUpdate = () => {
-      chargerProduits()
+      console.log('📢 Événement boutique-produits-updated reçu, rechargement...')
+      // Petit délai pour s'assurer que localStorage est bien mis à jour
+      setTimeout(() => {
+        chargerProduits()
+      }, 100)
     }
 
     document.addEventListener('visibilitychange', handleVisibilityChange)
     window.addEventListener('storage', handleStorageChange)
     window.addEventListener('boutique-produits-updated', handleBoutiqueUpdate)
+    
+    // Vérifier aussi périodiquement (toutes les 2 secondes) si on est sur la page
+    const intervalId = setInterval(() => {
+      if (!document.hidden) {
+        chargerProduits()
+      }
+    }, 2000)
 
     // Recharger aussi quand on revient sur la page (focus)
     const handleFocus = () => {
@@ -63,8 +116,130 @@ function CreerBoutique() {
       window.removeEventListener('storage', handleStorageChange)
       window.removeEventListener('boutique-produits-updated', handleBoutiqueUpdate)
       window.removeEventListener('focus', handleFocus)
+      clearInterval(intervalId)
     }
   }, [])
+
+  const loadCategories = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/categories`)
+      setCategories(response.data.categories || [])
+    } catch (err) {
+      console.error('Erreur chargement catégories:', err)
+    }
+  }
+
+  const loadProduits = async () => {
+    if (!selectedCategorie && !selectedCategorie.trim()) {
+      setError('Veuillez sélectionner une catégorie')
+      return
+    }
+
+    if (nombreProduits < 1 || nombreProduits > 100) {
+      setError('Le nombre de produits doit être entre 1 et 100')
+      return
+    }
+
+    setLoadingProduits(true)
+    setError(null)
+
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/api/veille-concurrentielle?categorie=${selectedCategorie}&limit=${nombreProduits}`
+      )
+      
+      if (response.data.produits && response.data.produits.length > 0) {
+        let produitsAvecTrends = response.data.produits
+        
+        // Analyser les tendances Google Trends pour les produits chargés
+        try {
+          setError('📊 Analyse des tendances Google Trends en cours...')
+          
+          const trendsResponse = await axios.post(
+            `${API_BASE_URL}/api/trends/validate-products`,
+            {
+              produits: response.data.produits.slice(0, Math.min(20, response.data.produits.length)), // Valider les 20 premiers max
+              timeframe: 'today 3-m',
+              geo: 'SN'
+            }
+          )
+          
+          if (trendsResponse.data.success && trendsResponse.data.analysis) {
+            const analysis = trendsResponse.data.analysis
+            
+            // Créer un map des validations par nom de produit
+            const validationsMap = {}
+            analysis.produits_go.forEach(item => {
+              validationsMap[item.produit.nom] = item.validation
+            })
+            analysis.produits_no_go.forEach(item => {
+              validationsMap[item.produit.nom] = item.validation
+            })
+            
+            // Enrichir les produits avec les scores de tendance
+            produitsAvecTrends = response.data.produits.map(produit => {
+              const validation = validationsMap[produit.nom]
+              if (validation) {
+                return {
+                  ...produit,
+                  trends_score: validation.score,
+                  trends_validated: validation.validated,
+                  trends_recommendation: validation.recommendation,
+                  trends_details: validation.details || []
+                }
+              }
+              return produit
+            })
+            
+            // Trier par score de tendance décroissant (produits validés en premier)
+            produitsAvecTrends.sort((a, b) => {
+              const scoreA = a.trends_score || 0
+              const scoreB = b.trends_score || 0
+              if (a.trends_validated && !b.trends_validated) return -1
+              if (!a.trends_validated && b.trends_validated) return 1
+              return scoreB - scoreA
+            })
+            
+            setError(null)
+          }
+        } catch (trendsErr) {
+          console.warn('Erreur analyse Google Trends:', trendsErr)
+          // On continue même si l'analyse échoue
+          setError(null)
+        }
+        
+        setProduitsDisponibles(produitsAvecTrends)
+      } else {
+        setError('Aucun produit trouvé pour cette catégorie')
+        setProduitsDisponibles([])
+      }
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Erreur lors du chargement des produits')
+      setProduitsDisponibles([])
+    } finally {
+      setLoadingProduits(false)
+    }
+  }
+
+  const ajouterABoutique = (produit) => {
+    // Vérifier si le produit n'est pas déjà dans la boutique
+    const existe = produits.some(p => 
+      (p.lien && produit.lien && p.lien === produit.lien) || 
+      p.nom === produit.nom
+    )
+
+    if (existe) {
+      setError('Ce produit est déjà dans votre boutique')
+      return
+    }
+
+    const nouveauxProduits = [...produits, produit]
+    setProduits(nouveauxProduits)
+    localStorage.setItem('boutique_produits', JSON.stringify(nouveauxProduits))
+    
+    // Notification pour rafraîchir si besoin
+    window.dispatchEvent(new Event('boutique-produits-updated'))
+  }
 
   // Sauvegarder dans localStorage quand les produits changent
   useEffect(() => {
@@ -96,10 +271,21 @@ function CreerBoutique() {
     setError(null)
 
     try {
+      // Préparer les produits avec leurs descriptions SEO si disponibles
+      const produitsAvecDescriptions = produits.map((produit, index) => {
+        const produitCopy = { ...produit }
+        if (descriptions[index]) {
+          produitCopy.description_seo = descriptions[index].description_seo
+          produitCopy.meta_description = descriptions[index].meta_description
+          produitCopy.mots_cles = descriptions[index].mots_cles
+        }
+        return produitCopy
+      })
+
       const response = await axios.post(
         `${API_BASE_URL}/api/generate-boutique-csv`,
         { 
-          produits: produits,
+          produits: produitsAvecDescriptions,
           export_type: exportType
         },
         { responseType: 'blob' }
@@ -125,19 +311,702 @@ function CreerBoutique() {
     return produits.reduce((sum, p) => sum + (p.prix || 0), 0)
   }
 
+  const genererDescriptionsSEO = async () => {
+    if (produits.length === 0) {
+      setError('Aucun produit dans la boutique')
+      return
+    }
+
+    setGeneratingDescriptions(true)
+    setError(null)
+
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/api/boutique/generate-descriptions-batch`,
+        {
+          produits: produits
+        }
+      )
+
+      if (response.data.success && response.data.resultats) {
+        const nouvellesDescriptions = {}
+        response.data.resultats.forEach((resultat, index) => {
+          nouvellesDescriptions[index] = resultat.description
+        })
+        setDescriptions(nouvellesDescriptions)
+      }
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Erreur lors de la génération des descriptions')
+    } finally {
+      setGeneratingDescriptions(false)
+    }
+  }
+
+  // Fonctions pour l'ajout manuel (drag & drop)
+  const handleDragOver = (e) => {
+    e.preventDefault()
+    setIsDragging(true)
+  }
+
+  const handleDragLeave = (e) => {
+    e.preventDefault()
+    setIsDragging(false)
+  }
+
+  const handleDrop = (e) => {
+    e.preventDefault()
+    setIsDragging(false)
+    
+    const files = Array.from(e.dataTransfer.files)
+    const imageFile = files.find(file => file.type.startsWith('image/'))
+    
+    if (imageFile) {
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        setImagePreview(event.target.result)
+        setManualProduit({ ...manualProduit, image: event.target.result })
+      }
+      reader.readAsDataURL(imageFile)
+    } else {
+      const text = e.dataTransfer.getData('text/plain')
+      if (text && (text.startsWith('http://') || text.startsWith('https://'))) {
+        setManualProduit({ ...manualProduit, image: text })
+        setImagePreview(text)
+      }
+    }
+  }
+
+  const handleImageUrlChange = (url) => {
+    setManualProduit({ ...manualProduit, image: url })
+    if (url && (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:'))) {
+      setImagePreview(url)
+    } else {
+      setImagePreview('')
+    }
+  }
+
+  const handlePaste = (e) => {
+    const items = e.clipboardData.items
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith('image/')) {
+        const file = items[i].getAsFile()
+        const reader = new FileReader()
+        reader.onload = (event) => {
+          setImagePreview(event.target.result)
+          setManualProduit({ ...manualProduit, image: event.target.result })
+        }
+        reader.readAsDataURL(file)
+        e.preventDefault()
+        break
+      }
+    }
+  }
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0]
+    if (file && file.type.startsWith('image/')) {
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        setImagePreview(event.target.result)
+        setManualProduit({ ...manualProduit, image: event.target.result })
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const handleDropZoneClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const ajouterManuel = () => {
+    if (!manualProduit.nom.trim()) {
+      setError('Le nom du produit est obligatoire')
+      return
+    }
+
+    const produitManuel = {
+      nom: manualProduit.nom.trim(),
+      prix_texte: manualProduit.prix_texte.trim() || 'Prix non spécifié',
+      prix: 0,
+      image: manualProduit.image.trim() || '',
+      lien: manualProduit.lien.trim() || '',
+      categorie: manualProduit.categorie.trim() || 'Manuel',
+      marque: manualProduit.marque.trim() || '',
+      source: 'Manuel'
+    }
+
+    ajouterABoutique(produitManuel)
+
+    // Réinitialiser le formulaire
+    setManualProduit({
+      nom: '',
+      prix_texte: '',
+      image: '',
+      lien: '',
+      categorie: '',
+      marque: ''
+    })
+    setImagePreview('')
+    setShowManualAdd(false)
+    setError(null)
+  }
+
+  // Fonction pour rechercher les tendances Google Trends
+  const rechercherTrends = async () => {
+    if (!trendsKeyword.trim()) {
+      setTrendsError('Veuillez entrer un mot-clé')
+      return
+    }
+
+    setTrendsLoading(true)
+    setTrendsError(null)
+    setTrendsData(null)
+    setTrendsProducts([])
+
+    try {
+      // Rechercher les tendances
+      const trendsResponse = await axios.post(`${API_BASE_URL}/api/trends`, {
+        keywords: [trendsKeyword.trim()],
+        timeframe: 'today 3-m',
+        geo: 'SN'
+      })
+
+      if (trendsResponse.data.success && trendsResponse.data.trends) {
+        setTrendsData(trendsResponse.data)
+        
+        // Rechercher des produits Jumia correspondants
+        try {
+          const jumiaResponse = await axios.get(
+            `${API_BASE_URL}/api/veille-concurrentielle?terme=${encodeURIComponent(trendsKeyword.trim())}&limit=10`
+          )
+          
+          if (jumiaResponse.data.produits && jumiaResponse.data.produits.length > 0) {
+            // Enrichir les produits avec les scores Google Trends
+            const produitsEnrichis = jumiaResponse.data.produits.map(produit => {
+              const trend = trendsResponse.data.trends[0]
+              const score = trend ? Math.round(trend.average) : 0
+              return {
+                ...produit,
+                trends_score: score,
+                trends_validated: score >= 50,
+                trends_recommendation: score >= 70 ? '🟢 GO FORT' : score >= 50 ? '🟡 GO MODÉRÉ' : score >= 30 ? '🟠 ATTENTION' : '🔴 NO GO'
+              }
+            })
+            
+            // Trier par score décroissant
+            produitsEnrichis.sort((a, b) => b.trends_score - a.trends_score)
+            setTrendsProducts(produitsEnrichis)
+          }
+        } catch (err) {
+          console.error('Erreur recherche Jumia:', err)
+          // On continue même si Jumia échoue
+        }
+      } else {
+        setTrendsError('Aucune donnée de tendance disponible')
+      }
+    } catch (err) {
+      setTrendsError(err.response?.data?.detail || 'Erreur lors de la recherche des tendances')
+    } finally {
+      setTrendsLoading(false)
+    }
+  }
+
   return (
     <div className="app">
       <div className="container">
         <h1>🛍️ Créer une Boutique</h1>
         <p className="subtitle">Sélectionnez des produits depuis Jumia et créez votre boutique de niche</p>
 
+        {/* Section sélection produits */}
+        <div className="marketing-section">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
+            <h2 style={{ margin: 0 }}>Ajouter des produits</h2>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                className="btn btn-primary"
+                onClick={() => setShowTrends(!showTrends)}
+                style={{ background: showTrends ? '#667eea' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
+              >
+                {showTrends ? '✕ Fermer' : '📈 Produits tendance (Google Trends)'}
+              </button>
+              <button
+                className="btn btn-secondary"
+                onClick={() => setShowManualAdd(!showManualAdd)}
+              >
+                {showManualAdd ? '✕ Fermer' : '+ Ajouter manuellement'}
+              </button>
+            </div>
+          </div>
+
+          {/* Section Google Trends */}
+          {showTrends && (
+            <div className="trends-section" style={{
+              background: 'linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)',
+              padding: '20px',
+              borderRadius: '12px',
+              marginBottom: '20px',
+              border: '2px solid #667eea'
+            }}>
+              <h3 style={{ marginTop: 0, color: '#667eea', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span>📈</span>
+                <span>Découvrir les produits les plus demandés</span>
+              </h3>
+              <p style={{ color: '#6b7280', marginBottom: '20px' }}>
+                Recherchez un mot-clé pour voir les produits tendance sur Google Trends et Jumia
+              </p>
+              
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
+                <input
+                  type="text"
+                  value={trendsKeyword}
+                  onChange={(e) => setTrendsKeyword(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && rechercherTrends()}
+                  placeholder="Ex: perruque, smartphone, chaussure..."
+                  style={{
+                    flex: 1,
+                    minWidth: '200px',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    border: '2px solid #d1d5db',
+                    fontSize: '1rem'
+                  }}
+                />
+                <button
+                  className="btn btn-primary"
+                  onClick={rechercherTrends}
+                  disabled={trendsLoading || !trendsKeyword.trim()}
+                >
+                  {trendsLoading ? (
+                    <>
+                      <span className="spinner"></span>
+                      Recherche...
+                    </>
+                  ) : (
+                    '🔍 Rechercher'
+                  )}
+                </button>
+              </div>
+
+              {trendsError && (
+                <div className="alert alert-error" style={{ marginBottom: '15px' }}>
+                  ⚠️ {trendsError}
+                </div>
+              )}
+
+              {/* Résultats des tendances */}
+              {trendsData && trendsData.trends && trendsData.trends.length > 0 && (
+                <div style={{ marginBottom: '20px' }}>
+                  <div style={{
+                    background: 'white',
+                    padding: '15px',
+                    borderRadius: '8px',
+                    marginBottom: '15px'
+                  }}>
+                    <h4 style={{ marginTop: 0, color: '#1f2937' }}>
+                      📊 Tendances pour "{trendsKeyword}"
+                    </h4>
+                    {trendsData.trends.map((trend, idx) => (
+                      <div key={idx} style={{
+                        padding: '10px',
+                        background: '#f9fafb',
+                        borderRadius: '6px',
+                        marginTop: '10px'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontWeight: '600' }}>{trend.keyword}</span>
+                          <div style={{ display: 'flex', gap: '15px', fontSize: '0.9rem' }}>
+                            <span>📈 Moyenne: <strong>{Math.round(trend.average)}/100</strong></span>
+                            <span>⬆️ Max: <strong>{trend.max}</strong></span>
+                            <span>📊 Min: <strong>{trend.min}</strong></span>
+                          </div>
+                        </div>
+                        <div style={{
+                          marginTop: '8px',
+                          height: '6px',
+                          background: '#e5e7eb',
+                          borderRadius: '3px',
+                          overflow: 'hidden'
+                        }}>
+                          <div style={{
+                            height: '100%',
+                            width: `${trend.average}%`,
+                            background: trend.average >= 70 ? 'linear-gradient(90deg, #10b981, #059669)' : 
+                                       trend.average >= 50 ? 'linear-gradient(90deg, #f59e0b, #d97706)' : 
+                                       'linear-gradient(90deg, #ef4444, #dc2626)',
+                            transition: 'width 0.3s'
+                          }}></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Produits Jumia correspondants avec scores */}
+              {trendsProducts.length > 0 && (
+                <div>
+                  <h4 style={{ color: '#1f2937', marginBottom: '15px' }}>
+                    🛍️ Produits Jumia correspondants (triés par popularité Google Trends)
+                  </h4>
+                  <div className="produits-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '15px' }}>
+                    {trendsProducts.map((produit, index) => (
+                      <div key={index} className="produit-card" style={{
+                        border: produit.trends_validated ? '2px solid #10b981' : '2px solid #e5e7eb',
+                        position: 'relative'
+                      }}>
+                        {/* Badge de score Google Trends */}
+                        <div style={{
+                          position: 'absolute',
+                          top: '10px',
+                          right: '10px',
+                          background: produit.trends_validated 
+                            ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                            : 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                          color: 'white',
+                          padding: '6px 12px',
+                          borderRadius: '20px',
+                          fontSize: '0.75rem',
+                          fontWeight: '700',
+                          zIndex: 10,
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                        }}>
+                          {produit.trends_recommendation} {produit.trends_score}/100
+                        </div>
+                        
+                        {produit.image && (
+                          <img src={produit.image} alt={produit.nom} className="produit-image" />
+                        )}
+                        <div className="produit-info">
+                          <h4 className="produit-nom">{produit.nom}</h4>
+                          <p className="produit-prix">{produit.prix_texte || produit.prix}</p>
+                          {produit.categorie && (
+                            <p className="produit-categorie">{produit.categorie}</p>
+                          )}
+                          <button
+                            className="btn btn-small btn-success"
+                            onClick={() => ajouterABoutique(produit)}
+                            disabled={produits.some(p => p.lien === produit.lien || p.nom === produit.nom)}
+                          >
+                            {produits.some(p => p.lien === produit.lien || p.nom === produit.nom) 
+                              ? '✓ Déjà ajouté' 
+                              : '+ Ajouter à la boutique'}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {!trendsLoading && !trendsData && !trendsError && (
+                <div style={{
+                  textAlign: 'center',
+                  padding: '40px',
+                  color: '#9ca3af'
+                }}>
+                  <div style={{ fontSize: '3rem', marginBottom: '10px' }}>🔍</div>
+                  <p>Entrez un mot-clé et cliquez sur "Rechercher" pour découvrir les produits tendance</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Formulaire d'ajout manuel */}
+          {showManualAdd && (
+            <div className="manual-add-form">
+              <h3>Ajouter un produit manuellement</h3>
+              <div className="form-grid">
+                <div className="input-group">
+                  <label htmlFor="manual-nom">Nom du produit *</label>
+                  <input
+                    id="manual-nom"
+                    type="text"
+                    value={manualProduit.nom}
+                    onChange={(e) => setManualProduit({ ...manualProduit, nom: e.target.value })}
+                    placeholder="Ex: Smartphone Samsung Galaxy S23"
+                  />
+                </div>
+                <div className="input-group">
+                  <label htmlFor="manual-prix">Prix</label>
+                  <input
+                    id="manual-prix"
+                    type="text"
+                    value={manualProduit.prix_texte}
+                    onChange={(e) => setManualProduit({ ...manualProduit, prix_texte: e.target.value })}
+                    placeholder="Ex: 150 000 FCFA"
+                  />
+                </div>
+                <div className="input-group" style={{ gridColumn: '1 / -1' }}>
+                  <label htmlFor="manual-image">Image du produit</label>
+                  <div className="image-upload-container">
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      accept="image/*"
+                      onChange={handleFileSelect}
+                      style={{ display: 'none' }}
+                    />
+                    <div
+                      className={`image-drop-zone ${isDragging ? 'dragging' : ''} ${imagePreview ? 'has-preview' : ''}`}
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop}
+                      onPaste={handlePaste}
+                      onClick={handleDropZoneClick}
+                    >
+                      {imagePreview ? (
+                        <div className="image-preview-wrapper">
+                          <img src={imagePreview} alt="Aperçu" className="image-preview" />
+                          <button
+                            type="button"
+                            className="remove-image-btn"
+                            onClick={() => {
+                              setImagePreview('')
+                              setManualProduit({ ...manualProduit, image: '' })
+                            }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="drop-zone-content">
+                          <div className="drop-zone-icon">📷</div>
+                          <p className="drop-zone-text">
+                            <strong>Glissez-déposez une image ici</strong>
+                          </p>
+                          <p className="drop-zone-subtext">
+                            ou collez une URL d'image (Ctrl+V)
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    <input
+                      id="manual-image"
+                      type="url"
+                      value={manualProduit.image && !manualProduit.image.startsWith('data:') ? manualProduit.image : ''}
+                      onChange={(e) => handleImageUrlChange(e.target.value)}
+                      placeholder="Ou entrez une URL d'image: https://..."
+                      className="image-url-input"
+                    />
+                  </div>
+                </div>
+                <div className="input-group">
+                  <label htmlFor="manual-lien">Lien (Jumia/Alibaba)</label>
+                  <input
+                    id="manual-lien"
+                    type="url"
+                    value={manualProduit.lien}
+                    onChange={(e) => setManualProduit({ ...manualProduit, lien: e.target.value })}
+                    placeholder="https://www.jumia.sn/... ou https://www.alibaba.com/..."
+                  />
+                </div>
+                <div className="input-group">
+                  <label htmlFor="manual-categorie">Catégorie</label>
+                  <input
+                    id="manual-categorie"
+                    type="text"
+                    value={manualProduit.categorie}
+                    onChange={(e) => setManualProduit({ ...manualProduit, categorie: e.target.value })}
+                    placeholder="Ex: Téléphones"
+                  />
+                </div>
+                <div className="input-group">
+                  <label htmlFor="manual-marque">Marque</label>
+                  <input
+                    id="manual-marque"
+                    type="text"
+                    value={manualProduit.marque}
+                    onChange={(e) => setManualProduit({ ...manualProduit, marque: e.target.value })}
+                    placeholder="Ex: Samsung"
+                  />
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
+                <button
+                  className="btn btn-success"
+                  onClick={ajouterManuel}
+                  disabled={!manualProduit.nom.trim()}
+                >
+                  ✓ Ajouter à la boutique
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setShowManualAdd(false)
+                    setManualProduit({
+                      nom: '',
+                      prix_texte: '',
+                      image: '',
+                      lien: '',
+                      categorie: '',
+                      marque: ''
+                    })
+                    setImagePreview('')
+                  }}
+                >
+                  Annuler
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div style={{ marginTop: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '15px' }}>
+              <div className="input-group">
+                <label htmlFor="categorie-boutique">Catégorie Jumia</label>
+                <select
+                  id="categorie-boutique"
+                  value={selectedCategorie}
+                  onChange={(e) => setSelectedCategorie(e.target.value)}
+                  disabled={loadingProduits}
+                >
+                  <option value="">-- Sélectionner une catégorie --</option>
+                  {categories.map((cat) => (
+                    <option key={cat.slug} value={cat.slug}>
+                      {cat.nom}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="input-group">
+                <label htmlFor="nombre-produits">Nombre de produits</label>
+                <input
+                  id="nombre-produits"
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={nombreProduits}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value) || 20
+                    setNombreProduits(Math.max(1, Math.min(100, value)))
+                  }}
+                  disabled={loadingProduits}
+                  style={{ width: '100%' }}
+                />
+                <small style={{ color: '#6b7280', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>
+                  Entre 1 et 100 produits
+                </small>
+              </div>
+            </div>
+
+            <button
+              className="btn btn-primary"
+              onClick={loadProduits}
+              disabled={loadingProduits || !selectedCategorie}
+            >
+              {loadingProduits ? (
+                <>
+                  <span className="spinner"></span>
+                  Chargement...
+                </>
+              ) : (
+                `📥 Charger ${nombreProduits} produit${nombreProduits > 1 ? 's' : ''}`
+              )}
+            </button>
+          </div>
+
+          {error && (
+            <div className="alert alert-error" style={{ marginTop: '15px' }}>
+              ⚠️ {error}
+            </div>
+          )}
+
+          {/* Liste des produits disponibles */}
+          {produitsDisponibles.length > 0 && (
+            <div className="produits-grid" style={{ marginTop: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                <h3>Produits disponibles ({produitsDisponibles.length})</h3>
+                {produitsDisponibles.some(p => p.trends_score !== undefined) && (
+                  <div style={{ 
+                    padding: '8px 16px', 
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    color: 'white',
+                    borderRadius: '20px',
+                    fontSize: '0.85rem',
+                    fontWeight: '600'
+                  }}>
+                    📊 Triés par tendance Google Trends
+                  </div>
+                )}
+              </div>
+              {produitsDisponibles.map((produit, index) => (
+                <div key={index} className="produit-card" style={{
+                  border: produit.trends_validated ? '2px solid #10b981' : produit.trends_score !== undefined ? '2px solid #f59e0b' : '2px solid #e5e7eb',
+                  position: 'relative'
+                }}>
+                  {/* Badge de score Google Trends */}
+                  {produit.trends_score !== undefined && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '10px',
+                      right: '10px',
+                      background: produit.trends_validated 
+                        ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                        : 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                      color: 'white',
+                      padding: '6px 12px',
+                      borderRadius: '20px',
+                      fontSize: '0.75rem',
+                      fontWeight: '700',
+                      zIndex: 10,
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}>
+                      {produit.trends_validated ? '✅' : '⚠️'}
+                      <span>{produit.trends_score}/100</span>
+                    </div>
+                  )}
+                  
+                  {produit.image && (
+                    <img src={produit.image} alt={produit.nom} className="produit-image" />
+                  )}
+                  <div className="produit-info">
+                    <h4 className="produit-nom">{produit.nom}</h4>
+                    <p className="produit-prix">{produit.prix_texte || produit.prix}</p>
+                    {produit.categorie && (
+                      <p className="produit-categorie">{produit.categorie}</p>
+                    )}
+                    
+                    {/* Affichage de la recommandation Google Trends */}
+                    {produit.trends_recommendation && (
+                      <div style={{
+                        marginTop: '8px',
+                        padding: '6px 10px',
+                        background: produit.trends_validated ? '#d1fae5' : '#fef3c7',
+                        borderRadius: '6px',
+                        fontSize: '0.8rem',
+                        color: produit.trends_validated ? '#065f46' : '#92400e',
+                        fontWeight: '600'
+                      }}>
+                        {produit.trends_recommendation.split(':')[0]}
+                      </div>
+                    )}
+                    
+                    <button
+                      className="btn btn-small btn-success"
+                      onClick={() => ajouterABoutique(produit)}
+                      disabled={produits.some(p => p.lien === produit.lien || p.nom === produit.nom)}
+                      style={{ marginTop: '10px' }}
+                    >
+                      {produits.some(p => p.lien === produit.lien || p.nom === produit.nom) ? '✓ Déjà ajouté' : '+ Ajouter à la boutique'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         {produits.length === 0 ? (
-          <div className="info-card empty-cart">
+          <div className="info-card empty-cart" style={{ marginTop: '30px' }}>
             <h2>Votre sélection est vide</h2>
             <p>Pour ajouter des produits :</p>
             <ol>
-              <li>Allez sur la page <strong>Veille Concurrentielle</strong></li>
-              <li>Sélectionnez une catégorie et analysez</li>
+              <li>Sélectionnez une catégorie Jumia ci-dessus et cliquez sur "Charger 20 produits"</li>
+              <li>Ou cliquez sur "Ajouter manuellement" pour créer un produit personnalisé</li>
               <li>Cliquez sur <strong>"Ajouter à la boutique"</strong> sur les produits qui vous intéressent</li>
             </ol>
             <p className="tip">💡 L'idée : créer une boutique entière sur une niche spécifique</p>
@@ -167,6 +1036,30 @@ function CreerBoutique() {
                     <span className="stat-value">{calculerTotal().toLocaleString('fr-FR')} FCFA</span>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            {/* Génération des descriptions SEO */}
+            <div className="export-options">
+              <div className="export-card">
+                <h3>✨ Générer les descriptions SEO</h3>
+                <p style={{ color: '#6b7280', marginBottom: '15px', fontSize: '0.9rem' }}>
+                  Génère des descriptions optimisées pour le SEO, adaptées à WooCommerce et Shopify
+                </p>
+                <button
+                  className="btn btn-primary"
+                  onClick={genererDescriptionsSEO}
+                  disabled={generatingDescriptions || produits.length === 0}
+                >
+                  {generatingDescriptions ? (
+                    <>
+                      <span className="spinner"></span>
+                      Génération en cours...
+                    </>
+                  ) : (
+                    '✨ Générer les descriptions SEO'
+                  )}
+                </button>
               </div>
             </div>
 
@@ -225,13 +1118,22 @@ function CreerBoutique() {
             <div className="boutique-produits">
               <div className="produits-header">
                 <h2>Produits de votre boutique ({produits.length})</h2>
-                <button
-                  className="btn btn-danger"
-                  onClick={viderPanier}
-                  disabled={produits.length === 0}
-                >
-                  🗑️ Vider la sélection
-                </button>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button
+                    className="btn btn-secondary"
+                    onClick={chargerProduits}
+                    title="Actualiser la liste des produits"
+                  >
+                    🔄 Actualiser
+                  </button>
+                  <button
+                    className="btn btn-danger"
+                    onClick={viderPanier}
+                    disabled={produits.length === 0}
+                  >
+                    🗑️ Vider la sélection
+                  </button>
+                </div>
               </div>
 
               <div className="produits-grid">
@@ -254,6 +1156,35 @@ function CreerBoutique() {
                       {produit.categorie && (
                         <p className="produit-categorie">📂 {produit.categorie}</p>
                       )}
+                      
+                      {/* Description SEO */}
+                      {descriptions[index] && (
+                        <div className="description-seo-section">
+                          <div className="description-seo-header">
+                            <strong>📝 Description SEO</strong>
+                            {descriptions[index].from_cache && (
+                              <span className="cache-badge">💾 Depuis le cache</span>
+                            )}
+                          </div>
+                          <div 
+                            className="description-seo-content"
+                            dangerouslySetInnerHTML={{ __html: descriptions[index].description_seo }}
+                          />
+                          {descriptions[index].meta_description && (
+                            <div className="meta-description">
+                              <strong>Meta description:</strong>
+                              <p>{descriptions[index].meta_description}</p>
+                            </div>
+                          )}
+                          {descriptions[index].mots_cles && (
+                            <div className="mots-cles">
+                              <strong>Mots-clés:</strong>
+                              <p>{descriptions[index].mots_cles}</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
                       <div className="boutique-actions">
                         <button
                           className="btn btn-danger btn-small"

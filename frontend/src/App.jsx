@@ -3,6 +3,9 @@ import axios from 'axios'
 import VeilleConcurrentielle from './VeilleConcurrentielle'
 import Alibaba from './Alibaba'
 import CreerBoutique from './CreerBoutique'
+import Marketing from './Marketing'
+import JournalVente from './JournalVente'
+import GoogleTrends from './GoogleTrends'
 import './App.css'
 
 const API_BASE_URL = 'http://localhost:8000'
@@ -154,30 +157,154 @@ function AnalyseProduit() {
 
             {result.decision === 'GO' && result.produits_lookalike && result.produits_lookalike.length > 0 && (
               <div className="produits-section">
-                <h2>Produits complémentaires proposés</h2>
-                <div className="table-container">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Nom</th>
-                        <th>Description</th>
-                        <th>Prix (FCFA)</th>
-                        <th>Type</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {result.produits_lookalike.map((produit, index) => (
-                        <tr key={index}>
-                          <td><strong>{produit.nom}</strong></td>
-                          <td>{produit.description}</td>
-                          <td>{produit.prix_recommande.toLocaleString('fr-FR')}</td>
-                          <td>
-                            <span className="type-badge">{produit.type}</span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <h2>Produits complémentaires proposés ({result.produits_lookalike.length})</h2>
+                
+                {/* Affichage en grille de cartes */}
+                <div className="produits-lookalike-grid" style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+                  gap: '20px',
+                  marginTop: '20px'
+                }}>
+                  {result.produits_lookalike.map((produit, index) => (
+                    <div key={index} className="produit-lookalike-card" style={{
+                      background: 'white',
+                      borderRadius: '12px',
+                      padding: '20px',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                      border: '2px solid #e5e7eb',
+                      transition: 'all 0.3s',
+                      display: 'flex',
+                      flexDirection: 'column'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'translateY(-4px)'
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.2)'
+                      e.currentTarget.style.borderColor = '#667eea'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'translateY(0)'
+                      e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)'
+                      e.currentTarget.style.borderColor = '#e5e7eb'
+                    }}
+                    >
+                      {/* Image du produit */}
+                      {produit.image ? (
+                        <img 
+                          src={produit.image} 
+                          alt={produit.nom}
+                          style={{
+                            width: '100%',
+                            height: '200px',
+                            objectFit: 'cover',
+                            borderRadius: '8px',
+                            marginBottom: '15px',
+                            background: '#f3f4f6'
+                          }}
+                          onError={(e) => {
+                            e.target.style.display = 'none'
+                          }}
+                        />
+                      ) : (
+                        <div style={{
+                          width: '100%',
+                          height: '200px',
+                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                          borderRadius: '8px',
+                          marginBottom: '15px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: 'white',
+                          fontSize: '3rem'
+                        }}>
+                          🛍️
+                        </div>
+                      )}
+                      
+                      {/* Nom du produit */}
+                      <h3 style={{
+                        margin: '0 0 10px 0',
+                        color: '#1f2937',
+                        fontSize: '1.2rem',
+                        fontWeight: '600'
+                      }}>
+                        {produit.nom}
+                      </h3>
+                      
+                      {/* Description */}
+                      <p style={{
+                        color: '#6b7280',
+                        fontSize: '0.9rem',
+                        lineHeight: '1.5',
+                        margin: '0 0 15px 0',
+                        flex: 1
+                      }}>
+                        {produit.description}
+                      </p>
+                      
+                      {/* Prix et Type */}
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        marginBottom: '15px',
+                        paddingTop: '15px',
+                        borderTop: '1px solid #e5e7eb'
+                      }}>
+                        <div>
+                          <div style={{ fontSize: '0.85rem', color: '#6b7280', marginBottom: '4px' }}>Prix recommandé</div>
+                          <div style={{ fontSize: '1.3rem', fontWeight: '700', color: '#667eea' }}>
+                            {produit.prix_recommande.toLocaleString('fr-FR')} FCFA
+                          </div>
+                        </div>
+                        <span className="type-badge" style={{
+                          padding: '6px 12px',
+                          borderRadius: '20px',
+                          fontSize: '0.85rem',
+                          fontWeight: '600',
+                          background: '#dbeafe',
+                          color: '#1e40af'
+                        }}>
+                          {produit.type}
+                        </span>
+                      </div>
+                      
+                      {/* Lien Jumia */}
+                      {produit.lien_jumia && (
+                        <a
+                          href={produit.lien_jumia}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '10px 16px',
+                            background: '#10b981',
+                            color: 'white',
+                            textDecoration: 'none',
+                            borderRadius: '8px',
+                            fontWeight: '600',
+                            fontSize: '0.9rem',
+                            transition: 'all 0.2s',
+                            justifyContent: 'center'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = '#059669'
+                            e.currentTarget.style.transform = 'translateY(-2px)'
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = '#10b981'
+                            e.currentTarget.style.transform = 'translateY(0)'
+                          }}
+                        >
+                          <span>🛒</span>
+                          Voir sur Jumia →
+                        </a>
+                      )}
+                    </div>
+                  ))}
                 </div>
 
                 <button
@@ -213,7 +340,7 @@ function AnalyseProduit() {
 
 // Composant principal avec navigation
 function App() {
-  const [currentPage, setCurrentPage] = useState('analyse') // 'analyse', 'veille', 'alibaba' ou 'boutique'
+  const [currentPage, setCurrentPage] = useState('analyse') // 'analyse', 'veille', 'alibaba', 'boutique', 'marketing', 'journal-vente', 'trends'
 
   return (
     <div>
@@ -245,6 +372,24 @@ function App() {
             >
               🛍️ Créer une Boutique
             </button>
+            <button
+              className={`nav-link ${currentPage === 'marketing' ? 'active' : ''}`}
+              onClick={() => setCurrentPage('marketing')}
+            >
+              📢 Marketing
+            </button>
+            <button
+              className={`nav-link ${currentPage === 'journal-vente' ? 'active' : ''}`}
+              onClick={() => setCurrentPage('journal-vente')}
+            >
+              📊 Journal des Ventes
+            </button>
+            <button
+              className={`nav-link ${currentPage === 'trends' ? 'active' : ''}`}
+              onClick={() => setCurrentPage('trends')}
+            >
+              📈 Google Trends
+            </button>
           </div>
         </div>
       </nav>
@@ -253,6 +398,9 @@ function App() {
       {currentPage === 'veille' && <VeilleConcurrentielle />}
       {currentPage === 'alibaba' && <Alibaba />}
       {currentPage === 'boutique' && <CreerBoutique />}
+      {currentPage === 'marketing' && <Marketing />}
+      {currentPage === 'journal-vente' && <JournalVente />}
+      {currentPage === 'trends' && <GoogleTrends />}
     </div>
   )
 }

@@ -68,8 +68,14 @@ def generate_boutique_csv_wordpress(produits: List[Dict]) -> str:
             # Générer un SKU basé sur l'index
             sku = f"JUMIA-{i:04d}"
             
-            # Description (utiliser la catégorie si pas de description)
-            description = p.get("description", "") or f"Produit {p.get('categorie', '')} de Jumia Sénégal"
+            # Description (priorité: description_seo > description > défaut)
+            description = ""
+            if p.get("description_seo"):
+                description = p.get("description_seo")
+            elif p.get("description"):
+                description = p.get("description")
+            else:
+                description = f"Produit {p.get('categorie', '')} de Jumia Sénégal"
             
             # Catégorie
             categorie = p.get("categorie", "Non catégorisé")
@@ -192,8 +198,17 @@ def generate_boutique_csv_shopify(produits: List[Dict]) -> str:
             # Handle (slug du nom)
             handle = p.get("nom", "").lower().replace(" ", "-").replace("'", "").replace(",", "")[:100]
             
-            # Description
-            description = p.get("description", "") or f"Produit {p.get('categorie', '')} de Jumia Sénégal"
+            # Description (priorité: description_seo > description > défaut)
+            description = ""
+            if p.get("description_seo"):
+                description = p.get("description_seo")
+            elif p.get("description"):
+                description = p.get("description")
+            else:
+                description = f"Produit {p.get('categorie', '')} de Jumia Sénégal"
+            
+            # Meta description pour SEO
+            meta_description = p.get("meta_description", "") or description[:160] if description else ""
             
             # Vendor (marque)
             vendor = p.get("marque", "Jumia")
@@ -241,7 +256,7 @@ def generate_boutique_csv_shopify(produits: List[Dict]) -> str:
                 p.get("nom", ""),  # Image Alt Text
                 "FALSE",  # Gift Card
                 p.get("nom", ""),  # SEO Title
-                description[:160],  # SEO Description
+                meta_description[:160],  # SEO Description
                 "",  # Google Shopping Category
                 "",  # Gender
                 "",  # Age Group

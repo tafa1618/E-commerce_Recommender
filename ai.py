@@ -56,7 +56,9 @@ Réponds STRICTEMENT en JSON valide avec cette structure :
       "nom": "",
       "description": "",
       "prix_recommande": 0,
-      "type": "accessoire | entretien | complement | upsell"
+      "type": "accessoire | entretien | complement | upsell",
+      "image": "URL de l'image du produit (optionnel, peut être vide)",
+      "lien_jumia": "URL Jumia du produit similaire (optionnel, peut être vide)"
     }
   ]
 }
@@ -115,6 +117,9 @@ def _valider_reponse_ia(data: Dict) -> bool:
                 if field not in produit:
                     logger.warning(f"Produit {i} manque le champ: {field}")
                     return False
+            
+            # Champs optionnels (image et lien_jumia)
+            # Pas de validation stricte, mais on vérifie qu'ils sont des strings si présents
     
     return True
 
@@ -133,7 +138,9 @@ def _valider_produit(produit: Dict) -> Dict:
         "nom": str(produit.get("nom", "")).strip(),
         "description": str(produit.get("description", "")).strip(),
         "prix_recommande": float(produit.get("prix_recommande", 0)) if produit.get("prix_recommande") else 0,
-        "type": str(produit.get("type", "")).strip()
+        "type": str(produit.get("type", "")).strip(),
+        "image": str(produit.get("image", "")).strip() if produit.get("image") else "",
+        "lien_jumia": str(produit.get("lien_jumia", "")).strip() if produit.get("lien_jumia") else ""
     }
 
 
@@ -171,12 +178,17 @@ Produit à analyser : {nom_produit.strip()}
 Lien (optionnel) : {lien if lien else "Non fourni"}
 
 Analyse le potentiel business (demande, concurrence, marge).
+
+Pour chaque produit recommandé, si possible :
+- Fournis une URL d'image représentative du produit (si tu connais une image valide)
+- Fournis un lien Jumia vers un produit similaire (format: https://www.jumia.sn/...)
+- Si tu ne peux pas fournir ces informations, laisse les champs "image" et "lien_jumia" vides (chaînes vides "")
 """
 
     try:
         logger.info(f"Analyse du produit: {nom_produit}")
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4o",
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": user_prompt}

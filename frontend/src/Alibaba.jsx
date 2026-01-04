@@ -17,11 +17,26 @@ function Alibaba() {
 
   const ajouterABoutique = (produit) => {
     try {
+      console.log('Ajout produit Alibaba à la boutique:', produit)
+      
+      if (!produit) {
+        console.error('Produit est null ou undefined')
+        setAddedMessage('Erreur: produit invalide')
+        setTimeout(() => setAddedMessage(null), 2000)
+        return
+      }
+      
       // Récupérer les produits existants
       const produitsExistants = JSON.parse(localStorage.getItem('boutique_produits') || '[]')
       
-      // Vérifier si le produit n'est pas déjà présent
-      const existeDeja = produitsExistants.some(p => p.lien === produit.lien)
+      // Vérifier si le produit n'est pas déjà présent (par lien ou par nom si pas de lien)
+      const existeDeja = produitsExistants.some(p => {
+        if (produit.lien && p.lien) {
+          return p.lien === produit.lien
+        }
+        // Si pas de lien, comparer par nom
+        return p.nom === produit.nom
+      })
       
       if (existeDeja) {
         setAddedMessage('Ce produit est déjà dans votre boutique')
@@ -29,19 +44,44 @@ function Alibaba() {
         return
       }
       
-      // Ajouter le produit
-      produitsExistants.push(produit)
+      // Ajouter le produit avec une source si pas déjà présente
+      const produitAvecSource = {
+        ...produit,
+        source: produit.source || 'Alibaba'
+      }
+      
+      produitsExistants.push(produitAvecSource)
       localStorage.setItem('boutique_produits', JSON.stringify(produitsExistants))
       
       // Déclencher un événement personnalisé pour notifier les autres composants
-      window.dispatchEvent(new Event('boutique-produits-updated'))
+      try {
+        const event = new CustomEvent('boutique-produits-updated', {
+          detail: { produit: produitAvecSource, total: produitsExistants.length }
+        })
+        window.dispatchEvent(event)
+        console.log('✅ Événement boutique-produits-updated déclenché')
+        console.log(`📦 Total produits dans localStorage: ${produitsExistants.length}`)
+        
+        // Forcer le rechargement en déclenchant plusieurs fois l'événement
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('boutique-produits-updated'))
+        }, 100)
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('boutique-produits-updated'))
+        }, 500)
+      } catch (e) {
+        console.error('Erreur déclenchement événement:', e)
+      }
       
-      setAddedMessage(`✅ "${produit.nom.substring(0, 30)}..." ajouté à la boutique`)
+      const nomAffiche = produit.nom ? (produit.nom.length > 30 ? produit.nom.substring(0, 30) + '...' : produit.nom) : 'Produit'
+      setAddedMessage(`✅ "${nomAffiche}" ajouté à la boutique`)
       setTimeout(() => setAddedMessage(null), 3000)
+      
+      console.log('Produit ajouté avec succès. Total produits:', produitsExistants.length)
     } catch (e) {
       console.error('Erreur ajout produit:', e)
-      setAddedMessage('Erreur lors de l\'ajout')
-      setTimeout(() => setAddedMessage(null), 2000)
+      setAddedMessage(`Erreur lors de l'ajout: ${e.message}`)
+      setTimeout(() => setAddedMessage(null), 3000)
     }
   }
 
@@ -135,6 +175,11 @@ function Alibaba() {
                 disabled={loading}
                 className="filter-select"
                 style={{ padding: '10px 12px' }}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    handleLoadData()
+                  }
+                }}
               />
             </div>
 
@@ -253,9 +298,53 @@ function Alibaba() {
                             </a>
                           )}
                           <button
-                            className="btn btn-success btn-small"
-                            onClick={() => ajouterABoutique(produit)}
-                            title="Ajouter à votre boutique"
+                            className="btn btn-success btn-small btn-ajouter-boutique"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              
+                              if (!produit) {
+                                alert('Erreur: produit invalide')
+                                return
+                              }
+                              
+                              // Feedback visuel immédiat
+                              const button = e.currentTarget
+                              const originalText = button.innerHTML
+                              button.innerHTML = '⏳ Ajout en cours...'
+                              button.disabled = true
+                              button.style.opacity = '0.7'
+                              
+                              try {
+                                ajouterABoutique(produit)
+                                
+                                // Feedback de succès
+                                setTimeout(() => {
+                                  button.innerHTML = '✅ Ajouté!'
+                                  button.style.backgroundColor = '#10b981'
+                                  
+                                  setTimeout(() => {
+                                    button.innerHTML = originalText
+                                    button.disabled = false
+                                    button.style.opacity = '1'
+                                    button.style.backgroundColor = ''
+                                  }, 1500)
+                                }, 300)
+                              } catch (error) {
+                                // Feedback d'erreur
+                                button.innerHTML = '❌ Erreur'
+                                button.style.backgroundColor = '#ef4444'
+                                
+                                setTimeout(() => {
+                                  button.innerHTML = originalText
+                                  button.disabled = false
+                                  button.style.opacity = '1'
+                                  button.style.backgroundColor = ''
+                                }, 2000)
+                              }
+                            }}
+                            title="Ajouter ce produit à votre boutique"
+                            type="button"
                           >
                             🛍️ Ajouter à la boutique
                           </button>

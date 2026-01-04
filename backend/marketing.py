@@ -230,7 +230,7 @@ Format de réponse JSON:
 Le descriptif doit être adapté au marché sénégalais, utiliser le français, et être optimisé pour Facebook Ads."""
 
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4o",
             messages=[
                 {"role": "system", "content": "Tu es un expert en marketing e-commerce et copywriting pour Facebook Ads."},
                 {"role": "user", "content": prompt}
