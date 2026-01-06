@@ -1,68 +1,83 @@
+'use client'
+
+import Image from 'next/image'
+import { useState } from 'react'
+
 const features = [
   {
     name: 'Livraison rapide',
-    description: 'Recevez vos commandes en 24-48h partout au Sénégal',
-    icon: (
-      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-      </svg>
-    ),
-  },
-  {
-    name: 'Paiement sécurisé',
-    description: 'Transactions 100% sécurisées avec nos partenaires de confiance',
-    icon: (
-      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-      </svg>
-    ),
+    description: 'Recevez vos commandes en un temps record, partout au Sénégal',
+    icon: '/Assets/icone_livraison_rapide.png',
   },
   {
     name: 'Support client',
-    description: 'Une équipe dédiée disponible 7j/7 pour vous accompagner',
-    icon: (
-      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
-      </svg>
-    ),
+    description: 'Une équipe dédiée à votre service pour répondre à toutes vos questions',
+    icon: '/Assets/icone_support_client.png',
   },
   {
-    name: 'Garantie qualité',
-    description: 'Tous nos produits sont vérifiés et garantis authentiques',
-    icon: (
-      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-    ),
+    name: 'Retour accepté',
+    description: 'Satisfait ou remboursé - Retours faciles et gratuits sous 30 jours',
+    icon: '/Assets/icone_retour_accepte.png',
+  },
+  {
+    name: 'Satisfaction client',
+    description: 'Des milliers de clients satisfaits nous font confiance chaque jour',
+    icon: '/Assets/icone_satisfaction_client.png',
   },
 ]
 
 export default function Features() {
+  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({})
+
+  const handleImageError = (name: string) => {
+    setImageErrors((prev) => ({ ...prev, [name]: true }))
+  }
+
   return (
-    <section className="py-20 md:py-32 bg-white">
+    <section className="py-16 md:py-24" style={{ backgroundColor: 'var(--color-bg-white)' }}>
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl md:text-4xl font-bold mb-4" style={{ color: 'var(--color-text-on-light)' }}>
             Pourquoi nous choisir ?
           </h2>
-          <p className="mt-4 text-lg text-gray-600">
+          <p className="text-lg" style={{ color: 'var(--color-text-gray)' }}>
             Des services de qualité pour une expérience d'achat exceptionnelle
           </p>
         </div>
 
-        <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
           {features.map((feature) => (
             <div
               key={feature.name}
-              className="rounded-xl bg-gray-50 p-8 text-center transition-transform hover:scale-105"
+              className="bg-white rounded-lg p-6 md:p-8 shadow-md hover:shadow-lg transition-shadow text-center"
             >
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-primary-100 text-primary-600">
-                {feature.icon}
+              {/* Icône */}
+              <div className="flex justify-center mb-4">
+                <div className="w-16 h-16 md:w-20 md:h-20 flex items-center justify-center">
+                  {imageErrors[feature.name] ? (
+                    <div className="text-4xl">✨</div>
+                  ) : (
+                    <Image
+                      src={feature.icon}
+                      alt={feature.name}
+                      width={80}
+                      height={80}
+                      className="object-contain"
+                      onError={() => handleImageError(feature.name)}
+                    />
+                  )}
+                </div>
               </div>
-              <h3 className="mt-6 text-lg font-semibold text-gray-900">
+
+              {/* Titre */}
+              <h3 className="text-xl font-bold mb-2" style={{ color: 'var(--color-primary-dark)' }}>
                 {feature.name}
               </h3>
-              <p className="mt-2 text-sm text-gray-600">{feature.description}</p>
+
+              {/* Description */}
+              <p className="text-sm md:text-base" style={{ color: 'var(--color-text-gray)' }}>
+                {feature.description}
+              </p>
             </div>
           ))}
         </div>
@@ -70,4 +85,3 @@ export default function Features() {
     </section>
   )
 }
-

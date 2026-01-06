@@ -12,6 +12,7 @@ export const metadata: Metadata = {
     title: 'Tafa Business - Marketplace',
     description: 'Votre marketplace de confiance pour tous vos besoins',
     type: 'website',
+    images: ['/logo-Tafa.png'],
   },
 }
 

@@ -41,7 +41,7 @@ init_database()  # Alibaba cache
 from boutique_csv import generate_boutique_csv_wordpress, generate_boutique_csv_shopify
 from marketing import generer_descriptif_marketing, generer_descriptifs_batch, sauvegarder_campagne, get_campagnes
 from boutique_descriptions import generer_description_seo, generer_descriptions_batch_boutique, generer_description_seo_simple
-from marketplace_db import publier_produit, get_produits_marketplace, enregistrer_evenement
+from marketplace_db import publier_produit, get_produits_marketplace, enregistrer_evenement, get_categories_phares, get_produits_par_categorie
 from marketing_seo import generer_description_seo_marketing
 from journal_vente import (
     init_journal_db, ajouter_vente, get_ventes, get_vente_par_id,
@@ -1156,6 +1156,56 @@ async def validate_products(request: ValidateProductsRequest):
         raise HTTPException(status_code=503, detail="Google Trends API non disponible. Installez pytrends: pip install pytrends")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur lors de la validation: {str(e)}")
+
+
+# =========================
+# ENDPOINTS MARKETPLACE - CATÉGORIES PHARES
+# =========================
+
+@app.get("/api/marketplace/categories-phares")
+async def get_featured_categories(limit: Optional[int] = 6):
+    """
+    Récupère les catégories phares basées sur des métriques intelligentes (ML-ready).
+    
+    Args:
+        limit: Nombre de catégories à retourner
+        
+    Returns:
+        Liste des catégories phares avec statistiques
+    """
+    try:
+        categories = get_categories_phares(limit=limit or 6)
+        return {
+            "success": True,
+            "categories": categories,
+            "count": len(categories)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération: {str(e)}")
+
+
+@app.get("/api/marketplace/categories/{categorie}/produits")
+async def get_products_by_category(categorie: str, limit: Optional[int] = 4):
+    """
+    Récupère les produits d'une catégorie spécifique.
+    
+    Args:
+        categorie: Nom de la catégorie
+        limit: Nombre de produits à retourner
+        
+    Returns:
+        Liste des produits de la catégorie
+    """
+    try:
+        produits = get_produits_par_categorie(categorie, limit=limit or 4)
+        return {
+            "success": True,
+            "produits": produits,
+            "categorie": categorie,
+            "count": len(produits)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération: {str(e)}")
 
 
 if __name__ == "__main__":

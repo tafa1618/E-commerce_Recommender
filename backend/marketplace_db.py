@@ -284,6 +284,96 @@ def enregistrer_evenement(product_id: str, event_type: str, user_id: Optional[st
         conn.close()
 
 
+def get_categories_phares(limit: int = 6) -> List[Dict]:
+    """
+    Récupère les catégories phares basées sur :
+    - Nombre de produits par catégorie
+    - Score de validation Google Trends moyen
+    - Nombre d'événements (vues, clics) récents
+    """
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    try:
+        # Requête intelligente qui combine plusieurs métriques
+        query = """
+            SELECT 
+                categorie,
+                COUNT(*) as nombre_produits,
+                AVG(COALESCE(validation_score, 0)) as score_moyen,
+                SUM(CASE WHEN validated = 1 THEN 1 ELSE 0 END) as produits_valides,
+                MAX(published_at) as derniere_publication
+            FROM produits_marketplace
+            WHERE status = 'active' AND categorie IS NOT NULL AND categorie != ''
+            GROUP BY categorie
+            HAVING COUNT(*) >= 1
+            ORDER BY 
+                produits_valides DESC,
+                score_moyen DESC,
+                nombre_produits DESC,
+                derniere_publication DESC
+            LIMIT ?
+        """
+        
+        cursor.execute(query, (limit,))
+        rows = cursor.fetchall()
+        
+        categories = []
+        for row in rows:
+            categories.append({
+                'nom': row[0],
+                'nombre_produits': row[1],
+                'score_moyen': round(row[2], 1) if row[2] else 0,
+                'produits_valides': row[3],
+                'derniere_publication': row[4]
+            })
+        
+        return categories
+        
+    except Exception as e:
+        print(f"❌ Erreur récupération catégories phares: {e}")
+        return []
+    finally:
+        conn.close()
+
+
+def get_produits_par_categorie(categorie: str, limit: int = 4) -> List[Dict]:
+    """Récupère les produits d'une catégorie spécifique"""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    try:
+        query = """
+            SELECT * FROM produits_marketplace 
+            WHERE status = 'active' AND categorie = ?
+            ORDER BY validation_score DESC, published_at DESC
+            LIMIT ?
+        """
+        
+        cursor.execute(query, (categorie, limit))
+        rows = cursor.fetchall()
+        
+        columns = [description[0] for description in cursor.description]
+        
+        produits = []
+        for row in rows:
+            produit = dict(zip(columns, row))
+            if produit.get('features_json'):
+                try:
+                    produit['features'] = json.loads(produit['features_json'])
+                except:
+                    produit['features'] = {}
+            produits.append(produit)
+        
+        return produits
+        
+    except Exception as e:
+        print(f"❌ Erreur récupération produits par catégorie: {e}")
+        return []
+    finally:
+        conn.close()
+
+
 # Initialiser la DB au chargement du module
 init_marketplace_db()
 

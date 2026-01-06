@@ -12,24 +12,28 @@ export default function Header() {
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex items-center space-x-2">
-            <div className="text-2xl font-bold" style={{ color: 'var(--color-text-on-dark)' }}>Tafa Business</div>
+            <img 
+              src="/logo-Tafa.png" 
+              alt="Tafa Business" 
+              className="h-10 w-auto"
+            />
           </Link>
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex md:items-center md:space-x-8">
-            <Link href="/" className="transition-colors" style={{ color: 'var(--color-text-on-dark)' }} onMouseEnter={(e) => e.currentTarget.style.color = 'var(--color-accent-yellow)'} onMouseLeave={(e) => e.currentTarget.style.color = 'var(--color-text-on-dark)'}>
+            <Link href="/" className="transition-colors nav-link">
               Accueil
             </Link>
-            <Link href="/categories" className="transition-colors" style={{ color: 'var(--color-text-on-dark)' }} onMouseEnter={(e) => e.currentTarget.style.color = 'var(--color-accent-yellow)'} onMouseLeave={(e) => e.currentTarget.style.color = 'var(--color-text-on-dark)'}>
+            <Link href="/categories" className="transition-colors nav-link">
               Catégories
             </Link>
-            <Link href="/products" className="transition-colors" style={{ color: 'var(--color-text-on-dark)' }} onMouseEnter={(e) => e.currentTarget.style.color = 'var(--color-accent-yellow)'} onMouseLeave={(e) => e.currentTarget.style.color = 'var(--color-text-on-dark)'}>
+            <Link href="/products" className="transition-colors nav-link">
               Produits
             </Link>
-            <Link href="/about" className="transition-colors" style={{ color: 'var(--color-text-on-dark)' }} onMouseEnter={(e) => e.currentTarget.style.color = 'var(--color-accent-yellow)'} onMouseLeave={(e) => e.currentTarget.style.color = 'var(--color-text-on-dark)'}>
+            <Link href="/about" className="transition-colors nav-link">
               À propos
             </Link>
-            <Link href="/contact" className="transition-colors" style={{ color: 'var(--color-text-on-dark)' }} onMouseEnter={(e) => e.currentTarget.style.color = 'var(--color-accent-yellow)'} onMouseLeave={(e) => e.currentTarget.style.color = 'var(--color-text-on-dark)'}>
+            <Link href="/contact" className="transition-colors nav-link">
               Contact
             </Link>
           </nav>
@@ -38,22 +42,13 @@ export default function Header() {
           <div className="hidden md:flex md:items-center md:space-x-4">
             <Link
               href="/login"
-              className="transition-colors"
-              style={{ color: 'var(--color-text-on-dark)' }}
-              onMouseEnter={(e) => e.currentTarget.style.color = 'var(--color-accent-yellow)'}
-              onMouseLeave={(e) => e.currentTarget.style.color = 'var(--color-text-on-dark)'}
+              className="transition-colors nav-link"
             >
               Connexion
             </Link>
             <Link
               href="/register"
-              className="rounded-lg px-4 py-2 font-semibold transition-colors"
-              style={{ 
-                backgroundColor: 'var(--color-accent-yellow)',
-                color: 'var(--color-primary-dark)'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--color-accent-yellow-dark)'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--color-accent-yellow)'}
+              className="rounded-lg px-4 py-2 font-semibold transition-colors btn-yellow"
             >
               Inscription
             </Link>
@@ -87,40 +82,31 @@ export default function Header() {
         {/* Mobile Navigation */}
         {isMenuOpen && (
           <nav className="md:hidden py-4 space-y-4">
-            <Link href="/" className="block transition-colors" style={{ color: 'var(--color-text-on-dark)' }} onMouseEnter={(e) => e.currentTarget.style.color = 'var(--color-accent-yellow)'} onMouseLeave={(e) => e.currentTarget.style.color = 'var(--color-text-on-dark)'}>
+            <Link href="/" className="block transition-colors nav-link">
               Accueil
             </Link>
-            <Link href="/categories" className="block transition-colors" style={{ color: 'var(--color-text-on-dark)' }} onMouseEnter={(e) => e.currentTarget.style.color = 'var(--color-accent-yellow)'} onMouseLeave={(e) => e.currentTarget.style.color = 'var(--color-text-on-dark)'}>
+            <Link href="/categories" className="block transition-colors nav-link">
               Catégories
             </Link>
-            <Link href="/products" className="block transition-colors" style={{ color: 'var(--color-text-on-dark)' }} onMouseEnter={(e) => e.currentTarget.style.color = 'var(--color-accent-yellow)'} onMouseLeave={(e) => e.currentTarget.style.color = 'var(--color-text-on-dark)'}>
+            <Link href="/products" className="block transition-colors nav-link">
               Produits
             </Link>
-            <Link href="/about" className="block transition-colors" style={{ color: 'var(--color-text-on-dark)' }} onMouseEnter={(e) => e.currentTarget.style.color = 'var(--color-accent-yellow)'} onMouseLeave={(e) => e.currentTarget.style.color = 'var(--color-text-on-dark)'}>
+            <Link href="/about" className="block transition-colors nav-link">
               À propos
             </Link>
-            <Link href="/contact" className="block transition-colors" style={{ color: 'var(--color-text-on-dark)' }} onMouseEnter={(e) => e.currentTarget.style.color = 'var(--color-accent-yellow)'} onMouseLeave={(e) => e.currentTarget.style.color = 'var(--color-text-on-dark)'}>
+            <Link href="/contact" className="block transition-colors nav-link">
               Contact
             </Link>
-            <div className="pt-4 space-y-2 border-t" style={{ borderColor: 'var(--color-border-gray-dark)' }}>
+            <div className="pt-4 space-y-2 border-t border-gray-700">
               <Link
                 href="/login"
-                className="block transition-colors"
-                style={{ color: 'var(--color-text-on-dark)' }}
-                onMouseEnter={(e) => e.currentTarget.style.color = 'var(--color-accent-yellow)'}
-                onMouseLeave={(e) => e.currentTarget.style.color = 'var(--color-text-on-dark)'}
+                className="block transition-colors nav-link"
               >
                 Connexion
               </Link>
               <Link
                 href="/register"
-                className="block rounded-lg px-4 py-2 font-semibold text-center transition-colors"
-                style={{ 
-                  backgroundColor: 'var(--color-accent-yellow)',
-                  color: 'var(--color-primary-dark)'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--color-accent-yellow-dark)'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--color-accent-yellow)'}
+                className="block rounded-lg px-4 py-2 font-semibold text-center transition-colors btn-yellow"
               >
                 Inscription
               </Link>

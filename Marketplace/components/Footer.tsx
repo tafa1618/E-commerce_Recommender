@@ -28,8 +28,12 @@ export default function Footer() {
         <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
-            <Link href="/" className="text-2xl font-bold text-white">
-              Tafa Business
+            <Link href="/" className="flex items-center">
+              <img 
+                src="/logo-Tafa.png" 
+                alt="Tafa Business" 
+                className="h-8 w-auto"
+              />
             </Link>
             <p className="mt-4 text-sm text-gray-400">
               Votre marketplace de confiance pour tous vos besoins quotidiens.

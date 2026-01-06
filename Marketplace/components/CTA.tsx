@@ -14,25 +14,13 @@ export default function CTA() {
           <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
               <Link
                 href="/register"
-                className="rounded-lg px-8 py-3 text-base font-semibold shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 transition-colors"
-                style={{ 
-                  backgroundColor: 'var(--color-accent-yellow)',
-                  color: 'var(--color-primary-dark)'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--color-accent-yellow-dark)'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--color-accent-yellow)'}
+                className="rounded-lg px-8 py-3 text-base font-semibold shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 transition-colors btn-yellow"
               >
                 Créer un compte
               </Link>
               <Link
                 href="/products"
-                className="rounded-lg px-8 py-3 text-base font-semibold shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 transition-colors"
-                style={{ 
-                  backgroundColor: 'var(--color-bg-white)',
-                  color: 'var(--color-primary-dark)'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--color-bg-gray-light)'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--color-bg-white)'}
+                className="rounded-lg px-8 py-3 text-base font-semibold shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 transition-colors btn-white"
               >
                 Voir les produits
               </Link>

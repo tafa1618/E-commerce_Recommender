@@ -38,3 +38,40 @@ body {
   }
 }
 
+/* Classes utilitaires pour les couleurs */
+.nav-link {
+  color: var(--color-text-on-dark);
+}
+
+.nav-link:hover {
+  color: var(--color-accent-yellow);
+}
+
+.btn-yellow {
+  background-color: var(--color-accent-yellow);
+  color: var(--color-primary-dark);
+}
+
+.btn-yellow:hover {
+  background-color: var(--color-accent-yellow-dark);
+}
+
+.btn-white {
+  background-color: var(--color-bg-white);
+  color: var(--color-primary-dark);
+}
+
+.btn-white:hover {
+  background-color: var(--color-bg-gray-light);
+}
+
+.btn-black {
+  background-color: var(--color-text-on-light);
+  color: var(--color-bg-white);
+}
+
+.btn-black:hover {
+  background-color: var(--color-primary-dark);
+  color: var(--color-text-on-dark);
+}
+
