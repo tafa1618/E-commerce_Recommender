@@ -1,197 +1,303 @@
 'use client'
 
-import { Product } from '@/types/product'
-import { useEffect } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
+import { useState, useEffect } from 'react'
+import { ShoppingCart, Heart, Share2, Check, Star } from 'lucide-react'
 
-interface ProductDetailProps {
-  product: Product
+interface Product {
+  product_id: string
+  nom: string
+  description_seo?: string
+  meta_description?: string
+  prix: number
+  prix_texte: string
+  image?: string
+  categorie: string
+  validation_score?: number
+  mots_cles?: string
 }
 
-export default function ProductDetail({ product }: ProductDetailProps) {
-  // Enregistrer la vue détaillée
+interface RelatedProduct {
+  product_id: string
+  nom: string
+  prix_texte: string
+  image?: string
+  categorie: string
+}
+
+export default function ProductDetail({ product }: { product: Product }) {
+  const [relatedProducts, setRelatedProducts] = useState<RelatedProduct[]>([])
+  const [loading, setLoading] = useState(true)
+  const [isFavorite, setIsFavorite] = useState(false)
+
+  // Charger les produits similaires (cross-selling)
   useEffect(() => {
-    fetch('/api/products/track', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        product_id: product.product_id,
-        event_type: 'view',
-        device_type: /Mobile|Android|iPhone/i.test(navigator.userAgent) ? 'mobile' : 'desktop',
-        source: 'web',
-        metadata: {
-          page: 'product_detail',
-          timestamp: new Date().toISOString(),
-        },
-      }),
-    }).catch((err) => console.error('Error tracking view:', err))
-  }, [product.product_id])
+    const fetchRelatedProducts = async () => {
+      try {
+        const res = await fetch(`/api/products?categorie=${encodeURIComponent(product.categorie)}&limit=4`)
+        if (res.ok) {
+          const data = await res.json()
+          // Filtrer le produit actuel
+          const related = (data.produits || []).filter(
+            (p: Product) => p.product_id !== product.product_id
+          ).slice(0, 4)
+          setRelatedProducts(related)
+        }
+      } catch (error) {
+        console.error('Error fetching related products:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (product.categorie) {
+      fetchRelatedProducts()
+    }
+  }, [product])
 
   const handleAddToCart = () => {
-    fetch('/api/products/track', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        product_id: product.product_id,
-        event_type: 'add_to_cart',
-        device_type: /Mobile|Android|iPhone/i.test(navigator.userAgent) ? 'mobile' : 'desktop',
-        source: 'web',
-      }),
-    }).catch((err) => console.error('Error tracking add_to_cart:', err))
+    // TODO: Implémenter l'ajout au panier
+    console.log('Ajouter au panier:', product.product_id)
+  }
+
+  const handleShare = () => {
+    if (navigator.share) {
+      navigator.share({
+        title: product.nom,
+        text: product.meta_description || product.nom,
+        url: window.location.href,
+      })
+    }
   }
 
   return (
-    <section className="py-12 md:py-20">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        {/* Breadcrumb */}
-        <nav className="mb-8 text-sm">
-          <Link href="/" className="text-gray-500 hover:text-primary-600">
-            Accueil
-          </Link>
-          <span className="mx-2 text-gray-400">/</span>
-          <Link href="/products" className="text-gray-500 hover:text-primary-600">
-            Produits
-          </Link>
-          <span className="mx-2 text-gray-400">/</span>
-          <span className="text-gray-900">{product.nom}</span>
-        </nav>
-
-        <div className="grid gap-12 lg:grid-cols-2">
-          {/* Image */}
-          <div>
-            {product.image ? (
-              <div className="aspect-square overflow-hidden rounded-2xl bg-gray-100">
-                <img
-                  src={product.image}
-                  alt={product.nom}
-                  className="h-full w-full object-cover"
-                />
+    <div className="min-h-screen bg-white">
+      {/* Section principale produit */}
+      <section className="py-8 md:py-12">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="grid lg:grid-cols-2 gap-8 md:gap-12">
+            {/* Image produit */}
+            <div className="relative">
+              <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
+                {product.image ? (
+                  <Image
+                    src={product.image}
+                    alt={product.nom}
+                    fill
+                    className="object-cover"
+                    priority
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <span className="text-gray-400 text-lg">Image non disponible</span>
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="aspect-square flex items-center justify-center rounded-2xl bg-gray-100 text-9xl">
-                🛍️
-              </div>
-            )}
-          </div>
-
-          {/* Informations */}
-          <div>
-            {/* Catégorie et marque */}
-            <div className="mb-4 flex items-center gap-4">
-              {product.categorie && (
-                <span className="text-sm font-medium text-primary-600">
-                  {product.categorie}
-                </span>
-              )}
-              {product.marque && (
-                <span className="text-sm text-gray-600">🏷️ {product.marque}</span>
-              )}
-            </div>
-
-            {/* Nom */}
-            <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl mb-4">
-              {product.nom}
-            </h1>
-
-            {/* Badge de validation */}
-            {product.validated && product.validation_score !== undefined && (
-              <div className="mb-4 inline-flex items-center gap-2 rounded-lg bg-green-50 px-4 py-2">
-                <span className="text-green-600 font-semibold">
-                  ✅ Validé Google Trends ({product.validation_score}/100)
-                </span>
-              </div>
-            )}
-
-            {/* Prix */}
-            <div className="mb-6">
-              <div className="text-4xl font-bold text-gray-900 mb-2">
-                {product.prix_texte || `${product.prix} FCFA`}
-              </div>
-              {product.remise && (
-                <span className="text-lg font-medium text-red-600 bg-red-50 px-3 py-1 rounded">
-                  -{product.remise}
-                </span>
-              )}
-            </div>
-
-            {/* Description SEO */}
-            {product.description_seo && (
-              <div className="mb-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-3">Description</h2>
-                <div
-                  className="prose prose-sm max-w-none text-gray-600"
-                  dangerouslySetInnerHTML={{ __html: product.description_seo }}
-                />
-              </div>
-            )}
-
-            {/* Mots-clés */}
-            {product.mots_cles && (
-              <div className="mb-6">
-                <h3 className="text-sm font-semibold text-gray-900 mb-2">Mots-clés SEO</h3>
-                <div className="flex flex-wrap gap-2">
-                  {product.mots_cles.split(',').map((keyword, index) => (
-                    <span
-                      key={index}
-                      className="rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-700"
-                    >
-                      {keyword.trim()}
-                    </span>
-                  ))}
+              
+              {/* Badge validation */}
+              {product.validation_score && product.validation_score > 0 && (
+                <div className="absolute top-4 left-4 bg-green-500 text-white px-3 py-1 rounded-full text-sm font-semibold flex items-center gap-1">
+                  <Check className="w-4 h-4" />
+                  Validé {product.validation_score}/100
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
-            {/* Actions */}
-            <div className="flex flex-col sm:flex-row gap-4">
-              <button
-                onClick={handleAddToCart}
-                className="flex-1 rounded-lg bg-primary-600 px-6 py-3 text-base font-semibold text-white shadow-sm hover:bg-primary-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 transition-colors"
-              >
-                🛒 Ajouter au panier
-              </button>
-              {product.lien && (
-                <a
-                  href={product.lien}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 rounded-lg bg-white px-6 py-3 text-base font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 text-center transition-colors"
+            {/* Informations produit */}
+            <div className="flex flex-col justify-center">
+              {/* Catégorie */}
+              <div className="text-sm font-medium mb-2" style={{ color: 'var(--color-primary-dark)' }}>
+                {product.categorie}
+              </div>
+
+              {/* Titre */}
+              <h1 className="text-3xl md:text-4xl font-bold mb-4" style={{ color: 'var(--color-text-on-light)' }}>
+                {product.nom}
+              </h1>
+
+              {/* Prix */}
+              <div className="mb-6">
+                <div className="text-4xl font-bold mb-2" style={{ color: 'var(--color-primary-dark)' }}>
+                  {product.prix_texte || `${product.prix.toLocaleString()} CFA`}
+                </div>
+                {product.validation_score && product.validation_score >= 70 && (
+                  <div className="text-sm" style={{ color: 'var(--color-text-gray)' }}>
+                    ✅ Produit validé et recommandé
+                  </div>
+                )}
+              </div>
+
+              {/* Actions */}
+              <div className="flex flex-col sm:flex-row gap-4 mb-8">
+                <button
+                  onClick={handleAddToCart}
+                  className="flex-1 flex items-center justify-center gap-2 px-8 py-4 bg-black text-white font-semibold rounded-lg hover:bg-gray-800 transition-colors"
                 >
-                  🔗 Voir sur {product.source}
-                </a>
-              )}
-            </div>
+                  <ShoppingCart className="w-5 h-5" />
+                  Ajouter au panier
+                </button>
+                <button
+                  onClick={() => setIsFavorite(!isFavorite)}
+                  className={`px-6 py-4 border-2 rounded-lg transition-colors ${
+                    isFavorite
+                      ? 'bg-red-50 border-red-500 text-red-600'
+                      : 'border-gray-300 hover:border-gray-400'
+                  }`}
+                >
+                  <Heart className={`w-5 h-5 ${isFavorite ? 'fill-current' : ''}`} />
+                </button>
+                <button
+                  onClick={handleShare}
+                  className="px-6 py-4 border-2 border-gray-300 rounded-lg hover:border-gray-400 transition-colors"
+                >
+                  <Share2 className="w-5 h-5" />
+                </button>
+              </div>
 
-            {/* Informations supplémentaires */}
-            <div className="mt-8 border-t border-gray-200 pt-8">
-              <h3 className="text-sm font-semibold text-gray-900 mb-4">Informations</h3>
-              <dl className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <dt className="text-gray-500">Source</dt>
-                  <dd className="font-medium text-gray-900">{product.source}</dd>
-                </div>
-                {product.note && (
-                  <div>
-                    <dt className="text-gray-500">Note</dt>
-                    <dd className="font-medium text-gray-900">{product.note}</dd>
-                  </div>
-                )}
-                {product.niche_level && (
-                  <div>
-                    <dt className="text-gray-500">Niveau de niche</dt>
-                    <dd className="font-medium text-gray-900">{product.niche_level}</dd>
-                  </div>
-                )}
-              </dl>
+              {/* Points clés */}
+              <div className="border-t border-gray-200 pt-6">
+                <h3 className="font-semibold mb-4" style={{ color: 'var(--color-text-on-light)' }}>
+                  Points clés
+                </h3>
+                <ul className="space-y-2">
+                  <li className="flex items-start gap-2">
+                    <Check className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                    <span style={{ color: 'var(--color-text-gray)' }}>Livraison rapide en 24-48h</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                    <span style={{ color: 'var(--color-text-gray)' }}>Retour accepté sous 30 jours</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                    <span style={{ color: 'var(--color-text-gray)' }}>Paiement sécurisé</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                    <span style={{ color: 'var(--color-text-gray)' }}>Support client 24/7</span>
+                  </li>
+                </ul>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
+
+      {/* Section description */}
+      <section className="py-12 bg-gray-50">
+        <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+          <h2 className="text-2xl md:text-3xl font-bold mb-6" style={{ color: 'var(--color-text-on-light)' }}>
+            Description du produit
+          </h2>
+          
+          <div 
+            className="prose prose-lg max-w-none"
+            style={{ 
+              color: 'var(--color-text-on-light)',
+              lineHeight: '1.8',
+              fontSize: '1.1rem'
+            }}
+          >
+            {product.description_seo ? (
+              <div 
+                dangerouslySetInnerHTML={{ __html: product.description_seo }}
+                className="text-gray-700 leading-relaxed"
+                style={{
+                  fontSize: '1.1rem',
+                  lineHeight: '1.8',
+                  color: '#374151'
+                }}
+              />
+            ) : (
+              <div className="space-y-4" style={{ color: '#374151', fontSize: '1.1rem', lineHeight: '1.8' }}>
+                <p>
+                  Découvrez ce produit exceptionnel qui allie qualité et performance. 
+                  Conçu pour répondre à vos besoins quotidiens, ce produit vous accompagnera 
+                  dans toutes vos activités.
+                </p>
+                <p>
+                  Caractéristiques principales :
+                </p>
+                <ul className="list-disc list-inside space-y-2 ml-4">
+                  <li>Qualité premium garantie</li>
+                  <li>Design moderne et élégant</li>
+                  <li>Facile à utiliser et entretenir</li>
+                  <li>Durabilité exceptionnelle</li>
+                </ul>
+                <p>
+                  Commandez dès maintenant et profitez de notre service de livraison rapide 
+                  partout au Sénégal. Satisfaction garantie ou remboursé !
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Mots-clés */}
+          {product.mots_cles && (
+            <div className="mt-8 pt-8 border-t border-gray-200">
+              <h3 className="font-semibold mb-3" style={{ color: 'var(--color-text-on-light)' }}>
+                Mots-clés
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {product.mots_cles.split(',').map((keyword, index) => (
+                  <span
+                    key={index}
+                    className="px-3 py-1 bg-gray-200 rounded-full text-sm"
+                    style={{ color: 'var(--color-text-gray)' }}
+                  >
+                    {keyword.trim()}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Section cross-selling */}
+      {relatedProducts.length > 0 && (
+        <section className="py-12 bg-white">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <h2 className="text-2xl md:text-3xl font-bold mb-8 text-center" style={{ color: 'var(--color-text-on-light)' }}>
+              Produits similaires
+            </h2>
+            
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
+              {relatedProducts.map((relatedProduct) => (
+                <Link
+                  key={relatedProduct.product_id}
+                  href={`/products/${relatedProduct.product_id}`}
+                  className="group bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow"
+                >
+                  <div className="aspect-square bg-gray-100 relative overflow-hidden">
+                    {relatedProduct.image ? (
+                      <Image
+                        src={relatedProduct.image}
+                        alt={relatedProduct.nom}
+                        fill
+                        className="object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <span className="text-gray-400 text-sm">Image</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-4">
+                    <h3 className="text-sm font-semibold mb-2 line-clamp-2 group-hover:text-primary-600 transition-colors" style={{ color: 'var(--color-text-on-light)' }}>
+                      {relatedProduct.nom}
+                    </h3>
+                    <p className="text-base font-bold" style={{ color: 'var(--color-primary-dark)' }}>
+                      {relatedProduct.prix_texte}
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+    </div>
   )
 }
-

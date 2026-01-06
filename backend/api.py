@@ -42,6 +42,7 @@ from boutique_csv import generate_boutique_csv_wordpress, generate_boutique_csv_
 from marketing import generer_descriptif_marketing, generer_descriptifs_batch, sauvegarder_campagne, get_campagnes
 from boutique_descriptions import generer_description_seo, generer_descriptions_batch_boutique, generer_description_seo_simple
 from marketplace_db import publier_produit, get_produits_marketplace, enregistrer_evenement, get_categories_phares, get_produits_par_categorie
+from image_downloader import download_image, copy_image_to_public
 from marketing_seo import generer_description_seo_marketing
 from journal_vente import (
     init_journal_db, ajouter_vente, get_ventes, get_vente_par_id,
@@ -1206,6 +1207,174 @@ async def get_products_by_category(categorie: str, limit: Optional[int] = 4):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération: {str(e)}")
+
+
+@app.get("/api/marketplace/products")
+async def get_products_marketplace_api(
+    status: Optional[str] = 'active',
+    limit: Optional[int] = None,
+    categorie: Optional[str] = None
+):
+    """
+    Récupère les produits du marketplace
+    
+    Args:
+        status: Statut des produits (active, draft, archived)
+        limit: Nombre de produits à retourner
+        categorie: Filtrer par catégorie
+        
+    Returns:
+        Liste des produits
+    """
+    try:
+        produits = get_produits_marketplace(status=status, limit=limit, categorie=categorie)
+        return {
+            "success": True,
+            "produits": produits,
+            "count": len(produits)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération: {str(e)}")
+
+
+@app.post("/api/marketplace/publish-product")
+async def publish_product_marketplace(request: PublishProductRequest):
+    """
+    Publie un produit sur le marketplace.
+    Télécharge automatiquement les images depuis les URLs externes.
+    
+    Args:
+        request: Requête contenant les données du produit
+        
+    Returns:
+        ID du produit publié
+    """
+    try:
+        produit = request.produit.copy()
+        image_url = produit.get('image')
+        downloaded_path = None
+        
+        # Télécharger l'image si elle vient d'une URL externe
+        if image_url and image_url.startswith(('http://', 'https://')):
+            # Générer un ID temporaire pour le produit
+            temp_product_id = produit.get('product_id') or f"temp_{hash(str(produit))}"
+            
+            # Télécharger l'image
+            downloaded_path = download_image(image_url, temp_product_id)
+            
+            if downloaded_path:
+                # Copier vers le dossier public du marketplace
+                marketplace_public = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'Marketplace', 'public')
+                final_image_path = copy_image_to_public(downloaded_path, marketplace_public)
+                
+                if final_image_path:
+                    # Mettre à jour l'URL de l'image avec le chemin local
+                    produit['image'] = final_image_path
+                    print(f"✅ Image téléchargée: {image_url} -> {final_image_path}")
+                else:
+                    print(f"⚠️ Image téléchargée mais erreur lors de la copie vers public/")
+            else:
+                print(f"⚠️ Impossible de télécharger l'image: {image_url}")
+        
+        product_id = publier_produit(
+            produit=produit,
+            description_seo=request.description_seo,
+            validation_data=request.validation_data,
+            niche_data=request.niche_data,
+            user_id=request.user_id,
+            session_id=request.session_id
+        )
+        return {
+            "success": True,
+            "product_id": product_id,
+            "message": "Produit publié avec succès",
+            "image_downloaded": downloaded_path is not None if image_url else False
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la publication: {str(e)}")
+
+
+@app.post("/api/marketplace/publish-products-batch")
+async def publish_products_batch_marketplace(request: List[PublishProductRequest]):
+    """
+    Publie plusieurs produits sur le marketplace en batch.
+    Télécharge automatiquement les images depuis les URLs externes.
+    
+    Args:
+        request: Liste de requêtes contenant les données des produits
+        
+    Returns:
+        Liste des IDs des produits publiés
+    """
+    try:
+        product_ids = []
+        images_downloaded = 0
+        marketplace_public = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'Marketplace', 'public')
+        
+        for req in request:
+            produit = req.produit.copy()
+            image_url = produit.get('image')
+            
+            # Télécharger l'image si elle vient d'une URL externe
+            if image_url and image_url.startswith(('http://', 'https://')):
+                temp_product_id = produit.get('product_id') or f"temp_{hash(str(produit))}"
+                downloaded_path = download_image(image_url, temp_product_id)
+                
+                if downloaded_path:
+                    final_image_path = copy_image_to_public(downloaded_path, marketplace_public)
+                    if final_image_path:
+                        produit['image'] = final_image_path
+                        images_downloaded += 1
+                        print(f"✅ Image {images_downloaded} téléchargée: {image_url} -> {final_image_path}")
+            
+            product_id = publier_produit(
+                produit=produit,
+                description_seo=req.description_seo,
+                validation_data=req.validation_data,
+                niche_data=req.niche_data,
+                user_id=req.user_id,
+                session_id=req.session_id
+            )
+            product_ids.append(product_id)
+        
+        return {
+            "success": True,
+            "product_ids": product_ids,
+            "count": len(product_ids),
+            "images_downloaded": images_downloaded,
+            "message": f"{len(product_ids)} produit(s) publié(s) avec succès ({images_downloaded} image(s) téléchargée(s))"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la publication batch: {str(e)}")
+
+
+@app.post("/api/marketplace/track-event")
+async def track_event_marketplace(request: Dict):
+    """
+    Enregistre un événement de tracking pour le ML
+    
+    Args:
+        request: Données de l'événement (product_id, event_type, etc.)
+        
+    Returns:
+        Confirmation de l'enregistrement
+    """
+    try:
+        enregistrer_evenement(
+            product_id=request.get("product_id"),
+            event_type=request.get("event_type"),
+            user_id=request.get("user_id"),
+            session_id=request.get("session_id"),
+            device_type=request.get("device_type"),
+            source=request.get("source"),
+            metadata=request.get("metadata")
+        )
+        return {
+            "success": True,
+            "message": "Événement enregistré avec succès"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de l'enregistrement: {str(e)}")
 
 
 if __name__ == "__main__":

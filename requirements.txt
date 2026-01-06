@@ -7,3 +7,4 @@ pytrends>=4.9.2
 fastapi
 uvicorn
 axios
+requests

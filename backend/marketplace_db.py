@@ -218,17 +218,25 @@ def publier_produit(produit: Dict, description_seo: Optional[Dict] = None,
         conn.close()
 
 
-def get_produits_marketplace(status: str = 'active', limit: Optional[int] = None) -> List[Dict]:
+def get_produits_marketplace(status: str = 'active', limit: Optional[int] = None, categorie: Optional[str] = None) -> List[Dict]:
     """Récupère les produits du marketplace"""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
     try:
-        query = "SELECT * FROM produits_marketplace WHERE status = ? ORDER BY published_at DESC"
+        query = "SELECT * FROM produits_marketplace WHERE status = ?"
+        params = [status]
+        
+        if categorie:
+            query += " AND categorie = ?"
+            params.append(categorie)
+        
+        query += " ORDER BY published_at DESC"
+        
         if limit:
             query += f" LIMIT {limit}"
         
-        cursor.execute(query, (status,))
+        cursor.execute(query, tuple(params))
         rows = cursor.fetchall()
         
         # Récupérer les noms de colonnes

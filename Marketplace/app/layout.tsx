@@ -8,6 +8,11 @@ export const metadata: Metadata = {
   title: 'Tafa Business - Marketplace',
   description: 'Votre marketplace de confiance pour tous vos besoins',
   metadataBase: new URL('https://tafa-business.com'),
+  icons: {
+    icon: '/logo-Tafa.png',
+    shortcut: '/logo-Tafa.png',
+    apple: '/logo-Tafa.png',
+  },
   openGraph: {
     title: 'Tafa Business - Marketplace',
     description: 'Votre marketplace de confiance pour tous vos besoins',

@@ -11,11 +11,15 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
     const status = searchParams.get('status') || 'active'
     const limit = searchParams.get('limit')
+    const categorie = searchParams.get('categorie')
 
     const url = new URL(`${API_BASE_URL}/api/marketplace/products`)
     url.searchParams.set('status', status)
     if (limit) {
       url.searchParams.set('limit', limit)
+    }
+    if (categorie) {
+      url.searchParams.set('categorie', categorie)
     }
 
     const response = await fetch(url.toString(), {
