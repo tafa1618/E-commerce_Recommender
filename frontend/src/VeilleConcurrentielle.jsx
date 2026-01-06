@@ -182,21 +182,56 @@ function VeilleConcurrentielle() {
     }
   }
 
-  // Charger les données depuis le cache au montage si disponibles
+  // Charger les paramètres sauvegardés au montage
   useEffect(() => {
-    const cacheKey = `jumia_data_${termeRecherche || selectedCategorie || 'all'}_${selectedTri}_${limit}`
-    const cachedData = localStorage.getItem(cacheKey)
-    
-    if (cachedData) {
-      try {
-        const parsedData = JSON.parse(cachedData)
-        setData(parsedData)
-        console.log('Données Jumia chargées depuis le cache')
-      } catch (e) {
-        console.error('Erreur chargement cache:', e)
+    try {
+      const savedCategorie = localStorage.getItem('jumia_selectedCategorie')
+      const savedTerme = localStorage.getItem('jumia_termeRecherche')
+      const savedTri = localStorage.getItem('jumia_selectedTri')
+      const savedLimit = localStorage.getItem('jumia_limit')
+      const savedData = localStorage.getItem('jumia_data')
+      const savedValidations = localStorage.getItem('jumia_validationResults')
+      
+      if (savedCategorie !== null) setSelectedCategorie(savedCategorie)
+      if (savedTerme !== null) setTermeRecherche(savedTerme)
+      if (savedTri !== null) setSelectedTri(savedTri)
+      if (savedLimit !== null) setLimit(Number(savedLimit))
+      if (savedData) {
+        try {
+          setData(JSON.parse(savedData))
+        } catch (e) {
+          console.error('Erreur parsing jumia_data:', e)
+        }
       }
+      if (savedValidations) {
+        try {
+          setValidationResults(JSON.parse(savedValidations))
+        } catch (e) {
+          console.error('Erreur parsing jumia_validationResults:', e)
+        }
+      }
+    } catch (e) {
+      console.error('Erreur chargement localStorage Jumia:', e)
     }
-  }, [termeRecherche, selectedCategorie, selectedTri, limit])
+  }, [])
+
+  // Sauvegarder les paramètres et données
+  useEffect(() => {
+    localStorage.setItem('jumia_selectedCategorie', selectedCategorie)
+    localStorage.setItem('jumia_termeRecherche', termeRecherche)
+    localStorage.setItem('jumia_selectedTri', selectedTri)
+    localStorage.setItem('jumia_limit', limit.toString())
+    if (data) {
+      localStorage.setItem('jumia_data', JSON.stringify(data))
+    }
+  }, [selectedCategorie, termeRecherche, selectedTri, limit, data])
+
+  // Sauvegarder les résultats de validation
+  useEffect(() => {
+    if (Object.keys(validationResults).length > 0) {
+      localStorage.setItem('jumia_validationResults', JSON.stringify(validationResults))
+    }
+  }, [validationResults])
 
   const validateProductWithTrends = async (produit) => {
     setValidatingProduct(produit.nom)

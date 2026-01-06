@@ -30,20 +30,70 @@ function Marketing() {
   const [isDragging, setIsDragging] = useState(false)
   const [imagePreview, setImagePreview] = useState('')
   const fileInputRef = React.useRef(null)
+  
+  // État pour la section SEO
+  const [seoInput, setSeoInput] = useState('')
+  const [seoGenerating, setSeoGenerating] = useState(false)
+  const [seoResult, setSeoResult] = useState(null)
 
-  // Charger les catégories au montage
+  // Charger les paramètres sauvegardés au montage
   useEffect(() => {
     loadCategories()
-    // Charger les produits de la campagne depuis localStorage
-    const saved = localStorage.getItem('campagne_produits')
-    if (saved) {
-      try {
-        setCampagneProduits(JSON.parse(saved))
-      } catch (e) {
-        console.error('Erreur chargement campagne:', e)
+    
+    try {
+      const savedCategorie = localStorage.getItem('marketing_selectedCategorie')
+      const savedNombreProduits = localStorage.getItem('marketing_nombreProduits')
+      const savedProduits = localStorage.getItem('marketing_produits')
+      const savedCampagne = localStorage.getItem('campagne_produits')
+      const savedDescriptifs = localStorage.getItem('marketing_descriptifs')
+      const savedNomCampagne = localStorage.getItem('marketing_nomCampagne')
+      
+      if (savedCategorie !== null) setSelectedCategorie(savedCategorie)
+      if (savedNombreProduits !== null) setNombreProduits(Number(savedNombreProduits))
+      if (savedProduits) {
+        try {
+          setProduits(JSON.parse(savedProduits))
+        } catch (e) {
+          console.error('Erreur parsing marketing_produits:', e)
+        }
       }
+      if (savedCampagne) {
+        try {
+          setCampagneProduits(JSON.parse(savedCampagne))
+        } catch (e) {
+          console.error('Erreur chargement campagne:', e)
+        }
+      }
+      if (savedDescriptifs) {
+        try {
+          setDescriptifs(JSON.parse(savedDescriptifs))
+        } catch (e) {
+          console.error('Erreur parsing marketing_descriptifs:', e)
+        }
+      }
+      if (savedNomCampagne !== null) setNomCampagne(savedNomCampagne)
+    } catch (e) {
+      console.error('Erreur chargement localStorage Marketing:', e)
     }
   }, [])
+
+  // Sauvegarder les paramètres et données
+  useEffect(() => {
+    localStorage.setItem('marketing_selectedCategorie', selectedCategorie)
+    localStorage.setItem('marketing_nombreProduits', nombreProduits.toString())
+    if (produits.length > 0) {
+      localStorage.setItem('marketing_produits', JSON.stringify(produits))
+    }
+    if (campagneProduits.length > 0) {
+      localStorage.setItem('campagne_produits', JSON.stringify(campagneProduits))
+    }
+    if (Object.keys(descriptifs).length > 0) {
+      localStorage.setItem('marketing_descriptifs', JSON.stringify(descriptifs))
+    }
+    if (nomCampagne) {
+      localStorage.setItem('marketing_nomCampagne', nomCampagne)
+    }
+  }, [selectedCategorie, nombreProduits, produits, campagneProduits, descriptifs, nomCampagne])
 
   const loadCategories = async () => {
     try {
@@ -233,15 +283,24 @@ function Marketing() {
   }
 
   const genererDescriptifs = async () => {
+    console.log('=== DEBUT genererDescriptifs ===')
+    console.log('campagneProduits:', campagneProduits)
+    console.log('Nombre de produits:', campagneProduits.length)
+    
     if (campagneProduits.length === 0) {
+      console.log('⚠️ Aucun produit dans la campagne')
       setError('Aucun produit dans la campagne')
       return
     }
 
+    console.log('✅ Démarrage de la génération...')
     setGeneratingDescriptifs(true)
     setError(null)
 
     try {
+      console.log('📡 Envoi de la requête à:', `${API_BASE_URL}/api/marketing/generate-batch`)
+      console.log('📦 Données envoyées:', { produits: campagneProduits, style: 'attractif' })
+      
       const response = await axios.post(
         `${API_BASE_URL}/api/marketing/generate-batch`,
         {
@@ -250,19 +309,65 @@ function Marketing() {
         }
       )
 
+      console.log('✅ Réponse reçue:', response.data)
+      console.log('response.data.success:', response.data.success)
+      console.log('response.data.resultats:', response.data.resultats)
+
       if (response.data.success && response.data.resultats) {
         const nouveauxDescriptifs = {}
         response.data.resultats.forEach((resultat, index) => {
+          console.log(`  Produit ${index}:`, resultat)
           nouveauxDescriptifs[index] = resultat.descriptif
         })
+        console.log('📝 Nouveaux descriptifs:', nouveauxDescriptifs)
         setDescriptifs(nouveauxDescriptifs)
+        console.log('✅ Descriptifs sauvegardés avec succès')
+      } else {
+        console.warn('⚠️ Réponse invalide ou sans résultats')
+        setError('Réponse invalide du serveur')
       }
     } catch (err) {
-      setError(err.response?.data?.detail || 'Erreur lors de la génération des descriptifs')
+      console.error('❌ ERREUR dans genererDescriptifs:', err)
+      console.error('  Message:', err.message)
+      console.error('  Response:', err.response?.data)
+      setError(err.response?.data?.detail || err.message || 'Erreur lors de la génération des descriptifs')
     } finally {
       setGeneratingDescriptifs(false)
+      console.log('=== FIN genererDescriptifs ===')
     }
   }
+
+  const genererDescriptionSEO = async () => {
+    if (!seoInput || !seoInput.trim()) {
+      setError('Veuillez entrer un nom ou une description de produit')
+      return
+    }
+
+    setSeoGenerating(true)
+    setError(null)
+    setSeoResult(null)
+
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/api/marketing/generate-seo`,
+        {
+          texte_produit: seoInput.trim()
+        }
+      )
+
+      if (response.data.success && response.data.description) {
+        setSeoResult(response.data.description)
+      } else {
+        setError('Réponse invalide du serveur')
+      }
+    } catch (err) {
+      console.error('Erreur génération SEO:', err)
+      setError(err.response?.data?.detail || err.message || 'Erreur lors de la génération SEO')
+    } finally {
+      setSeoGenerating(false)
+    }
+  }
+
 
   const sauvegarderCampagne = async () => {
     if (!nomCampagne.trim()) {
@@ -667,6 +772,160 @@ function Marketing() {
               </div>
             </>
           )}
+        </div>
+
+        {/* Section SEO */}
+        <div className="marketing-section" style={{ marginTop: '40px' }}>
+          <h2>3. 🔍 Optimisation SEO - Description de Produit</h2>
+          <p style={{ color: '#666', marginBottom: '20px' }}>
+            Entrez un nom de produit ou une description existante. Notre IA va l'améliorer pour le rendre unique, percutant et optimisé pour le SEO.
+          </p>
+
+          <div className="seo-form" style={{ maxWidth: '800px' }}>
+            <div className="input-group" style={{ marginBottom: '20px' }}>
+              <label htmlFor="seo-input">
+                <strong>Nom ou description du produit</strong>
+                <span style={{ fontSize: '0.85rem', color: '#666', display: 'block', marginTop: '5px' }}>
+                  Ex: "Smartphone Samsung Galaxy S23" ou "Téléphone portable avec écran 6.1 pouces, 128GB..."
+                </span>
+              </label>
+              <textarea
+                id="seo-input"
+                value={seoInput}
+                onChange={(e) => setSeoInput(e.target.value)}
+                placeholder="Entrez le nom ou la description du produit à améliorer..."
+                rows={4}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  border: '2px solid #e5e7eb',
+                  borderRadius: '8px',
+                  fontSize: '1rem',
+                  fontFamily: 'inherit',
+                  resize: 'vertical'
+                }}
+                disabled={seoGenerating}
+              />
+            </div>
+
+            <button
+              className="btn btn-primary"
+              onClick={genererDescriptionSEO}
+              disabled={seoGenerating || !seoInput.trim()}
+              style={{ marginBottom: '20px' }}
+            >
+              {seoGenerating ? (
+                <>
+                  <span className="spinner"></span>
+                  Génération en cours...
+                </>
+              ) : (
+                '✨ Générer la description SEO'
+              )}
+            </button>
+
+            {seoResult && (
+              <div className="seo-result" style={{
+                marginTop: '30px',
+                padding: '20px',
+                background: '#f9fafb',
+                borderRadius: '12px',
+                border: '2px solid #e5e7eb'
+              }}>
+                <h3 style={{ marginTop: 0, marginBottom: '20px', color: '#1f2937' }}>
+                  ✅ Description SEO générée
+                </h3>
+
+                {/* Description SEO */}
+                <div style={{ marginBottom: '25px' }}>
+                  <h4 style={{ color: '#667eea', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    📝 Description SEO (HTML)
+                  </h4>
+                  <div
+                    style={{
+                      padding: '15px',
+                      background: 'white',
+                      borderRadius: '8px',
+                      border: '1px solid #e5e7eb',
+                      maxHeight: '400px',
+                      overflowY: 'auto'
+                    }}
+                    dangerouslySetInnerHTML={{ __html: seoResult.description_seo }}
+                  />
+                  <button
+                    className="btn btn-small btn-secondary"
+                    onClick={() => {
+                      navigator.clipboard.writeText(seoResult.description_seo)
+                      alert('✅ Description SEO copiée !')
+                    }}
+                    style={{ marginTop: '10px' }}
+                  >
+                    📋 Copier la description
+                  </button>
+                </div>
+
+                {/* Meta Description */}
+                <div style={{ marginBottom: '25px' }}>
+                  <h4 style={{ color: '#667eea', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    🏷️ Meta Description
+                    <span style={{ fontSize: '0.85rem', color: '#666', fontWeight: 'normal' }}>
+                      ({seoResult.meta_description?.length || 0} caractères)
+                    </span>
+                  </h4>
+                  <div
+                    style={{
+                      padding: '15px',
+                      background: 'white',
+                      borderRadius: '8px',
+                      border: '1px solid #e5e7eb',
+                      fontStyle: 'italic',
+                      color: '#374151'
+                    }}
+                  >
+                    {seoResult.meta_description}
+                  </div>
+                  <button
+                    className="btn btn-small btn-secondary"
+                    onClick={() => {
+                      navigator.clipboard.writeText(seoResult.meta_description)
+                      alert('✅ Meta description copiée !')
+                    }}
+                    style={{ marginTop: '10px' }}
+                  >
+                    📋 Copier la meta description
+                  </button>
+                </div>
+
+                {/* Mots-clés */}
+                <div>
+                  <h4 style={{ color: '#667eea', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    🔑 Mots-clés SEO
+                  </h4>
+                  <div
+                    style={{
+                      padding: '15px',
+                      background: 'white',
+                      borderRadius: '8px',
+                      border: '1px solid #e5e7eb',
+                      color: '#374151'
+                    }}
+                  >
+                    {seoResult.mots_cles}
+                  </div>
+                  <button
+                    className="btn btn-small btn-secondary"
+                    onClick={() => {
+                      navigator.clipboard.writeText(seoResult.mots_cles)
+                      alert('✅ Mots-clés copiés !')
+                    }}
+                    style={{ marginTop: '10px' }}
+                  >
+                    📋 Copier les mots-clés
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

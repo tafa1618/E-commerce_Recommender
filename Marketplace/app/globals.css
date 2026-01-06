@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Couleurs principales - Tafa Business */
+  --color-primary-dark: #172554;        /* Bleu foncé pour headers/footers */
+  --color-primary-medium: #1e40af;     /* Bleu moyen */
+  --color-primary-light: #3b82f6;      /* Bleu clair */
+  
+  /* Couleurs d'accent */
+  --color-accent-yellow: #facc15;       /* Jaune pour boutons CTA */
+  --color-accent-yellow-dark: #eab308;  /* Jaune foncé pour hover */
+  
+  /* Couleurs de texte */
+  --color-text-on-dark: #ffffff;         /* Texte blanc sur fond sombre */
+  --color-text-on-light: #111827;        /* Texte noir sur fond clair */
+  --color-text-gray: #6b7280;           /* Texte gris */
+  
+  /* Couleurs de fond */
+  --color-bg-white: #ffffff;             /* Fond blanc */
+  --color-bg-gray-light: #f9fafb;       /* Fond gris clair */
+  --color-bg-gray: #f3f4f6;             /* Fond gris */
+  
+  /* Couleurs de bordure */
+  --color-border-gray: #e5e7eb;          /* Bordure grise */
+  --color-border-gray-dark: #9ca3af;     /* Bordure grise foncée */
+}
+
+body {
+  color: var(--color-text-on-light);
+  background: var(--color-bg-white);
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+

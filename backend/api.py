@@ -40,7 +40,9 @@ init_database()  # Alibaba cache
 # Import depuis le même répertoire (backend)
 from boutique_csv import generate_boutique_csv_wordpress, generate_boutique_csv_shopify
 from marketing import generer_descriptif_marketing, generer_descriptifs_batch, sauvegarder_campagne, get_campagnes
-from boutique_descriptions import generer_description_seo, generer_descriptions_batch_boutique
+from boutique_descriptions import generer_description_seo, generer_descriptions_batch_boutique, generer_description_seo_simple
+from marketplace_db import publier_produit, get_produits_marketplace, enregistrer_evenement
+from marketing_seo import generer_description_seo_marketing
 from journal_vente import (
     init_journal_db, ajouter_vente, get_ventes, get_vente_par_id,
     modifier_vente, supprimer_vente, get_statistiques, get_ventes_par_periode,
@@ -53,6 +55,7 @@ from google_trends import (
 from trends_validator import (
     validate_product_trend, validate_multiple_products, compare_jumia_vs_trends
 )
+from niche_validator import analyser_niche
 
 app = FastAPI(title="E-commerce Recommender API", version="1.0.0")
 
@@ -120,6 +123,19 @@ class BoutiqueDescriptionRequest(BaseModel):
 
 class BoutiqueDescriptionBatchRequest(BaseModel):
     produits: List[Dict]
+
+
+class SEODescriptionRequest(BaseModel):
+    texte_produit: str  # Nom ou description du produit à améliorer
+
+
+class PublishProductRequest(BaseModel):
+    produit: Dict
+    description_seo: Optional[Dict] = None
+    validation_data: Optional[Dict] = None
+    niche_data: Optional[Dict] = None
+    user_id: Optional[str] = None
+    session_id: Optional[str] = None
 
 
 class VenteRequest(BaseModel):
@@ -707,6 +723,33 @@ async def generate_boutique_descriptions_batch(request: BoutiqueDescriptionBatch
         raise HTTPException(status_code=500, detail=f"Erreur lors de la génération batch: {str(e)}")
 
 
+@app.post("/api/marketing/generate-seo")
+async def generate_seo_description(request: SEODescriptionRequest):
+    """
+    Génère une description SEO-friendly à partir d'un texte simple (nom ou description de produit).
+    Améliore le texte pour le rendre unique et optimisé pour le SEO.
+    
+    Args:
+        request: Requête contenant le texte du produit (nom ou description)
+        
+    Returns:
+        Description SEO avec meta description et mots-clés
+    """
+    try:
+        if not request.texte_produit or not request.texte_produit.strip():
+            raise HTTPException(status_code=400, detail="Le texte du produit ne peut pas être vide")
+        
+        description = generer_description_seo_simple(request.texte_produit.strip())
+        return {
+            "success": True,
+            "description": description
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la génération SEO: {str(e)}")
+
+
 # =========================
 # ENDPOINTS JOURNAL DES VENTES
 # =========================
@@ -1045,6 +1088,10 @@ class ValidateProductsRequest(BaseModel):
     geo: Optional[str] = 'SN'
 
 
+class NicheValidationRequest(BaseModel):
+    produits: List[Dict]
+
+
 @app.post("/api/trends/validate-product")
 async def validate_product(request: ValidateProductRequest):
     """
@@ -1066,6 +1113,23 @@ async def validate_product(request: ValidateProductRequest):
         raise HTTPException(status_code=503, detail="Google Trends API non disponible. Installez pytrends: pip install pytrends")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur lors de la validation: {str(e)}")
+
+
+@app.post("/api/boutique/validate-niche")
+async def validate_niche(request: NicheValidationRequest):
+    """
+    Valide la cohérence de niche d'une boutique
+    Analyse les produits sélectionnés pour déterminer si ils forment une niche cohérente
+    """
+    try:
+        result = analyser_niche(request.produits)
+        
+        return {
+            "success": True,
+            "niche_analysis": result
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la validation de niche: {str(e)}")
 
 
 @app.post("/api/trends/validate-products")

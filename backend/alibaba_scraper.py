@@ -195,7 +195,7 @@ def scraper_alibaba_recherche(terme: str = "", categorie: str = "", limit: int =
         
         print(f"Scraping Alibaba: {url}")
         
-        response = requests.get(url, headers=HEADERS, timeout=30)
+        response = requests.get(url, headers=HEADERS, timeout=15)
         response.raise_for_status()
         
         soup = BeautifulSoup(response.content, 'html.parser')

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import VeilleConcurrentielle from './VeilleConcurrentielle'
 import Alibaba from './Alibaba'
@@ -11,12 +11,64 @@ import './App.css'
 const API_BASE_URL = 'http://localhost:8000'
 
 function AnalyseProduit() {
-  const [nomProduit, setNomProduit] = useState('')
-  const [lien, setLien] = useState('')
+  // Charger les données depuis localStorage au montage
+  const loadFromStorage = () => {
+    try {
+      const savedResult = localStorage.getItem('analyse_produit_result')
+      const savedNomProduit = localStorage.getItem('analyse_produit_nom')
+      const savedLien = localStorage.getItem('analyse_produit_lien')
+      
+      if (savedResult) {
+        return {
+          result: JSON.parse(savedResult),
+          nomProduit: savedNomProduit || '',
+          lien: savedLien || ''
+        }
+      }
+    } catch (e) {
+      console.error('Erreur chargement localStorage:', e)
+    }
+    return { result: null, nomProduit: '', lien: '' }
+  }
+
+  const { result: initialResult, nomProduit: initialNomProduit, lien: initialLien } = loadFromStorage()
+  
+  const [nomProduit, setNomProduit] = useState(initialNomProduit)
+  const [lien, setLien] = useState(initialLien)
   const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState(null)
+  const [result, setResult] = useState(initialResult)
   const [error, setError] = useState(null)
   const [csvLoading, setCsvLoading] = useState(false)
+
+  // Sauvegarder dans localStorage quand le résultat change
+  useEffect(() => {
+    if (result) {
+      try {
+        localStorage.setItem('analyse_produit_result', JSON.stringify(result))
+        localStorage.setItem('analyse_produit_nom', nomProduit)
+        localStorage.setItem('analyse_produit_lien', lien)
+      } catch (e) {
+        console.error('Erreur sauvegarde localStorage:', e)
+      }
+    }
+  }, [result, nomProduit, lien])
+
+  // Recharger depuis localStorage quand on revient sur la page
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        const { result: savedResult, nomProduit: savedNomProduit, lien: savedLien } = loadFromStorage()
+        if (savedResult && !result) {
+          setResult(savedResult)
+          setNomProduit(savedNomProduit)
+          setLien(savedLien)
+        }
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [result])
 
   const handleAnalyse = async () => {
     if (!nomProduit.trim()) {
@@ -33,7 +85,17 @@ function AnalyseProduit() {
         nom_produit: nomProduit,
         lien: lien || null
       })
-      setResult(response.data)
+      const analysisResult = response.data
+      setResult(analysisResult)
+      
+      // Sauvegarder immédiatement
+      try {
+        localStorage.setItem('analyse_produit_result', JSON.stringify(analysisResult))
+        localStorage.setItem('analyse_produit_nom', nomProduit)
+        localStorage.setItem('analyse_produit_lien', lien)
+      } catch (e) {
+        console.error('Erreur sauvegarde localStorage:', e)
+      }
     } catch (err) {
       setError(err.response?.data?.detail || 'Erreur lors de l\'analyse')
     } finally {
@@ -88,7 +150,31 @@ function AnalyseProduit() {
   return (
     <div className="app">
       <div className="container">
-        <h1>🧠 Analyse Produit E-commerce</h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <h1 style={{ margin: 0 }}>🧠 Analyse Produit E-commerce</h1>
+          {result && (
+            <button
+              className="btn btn-secondary btn-small"
+              onClick={() => {
+                setResult(null)
+                setNomProduit('')
+                setLien('')
+                localStorage.removeItem('analyse_produit_result')
+                localStorage.removeItem('analyse_produit_nom')
+                localStorage.removeItem('analyse_produit_lien')
+              }}
+              title="Effacer le résultat"
+            >
+              🗑️ Effacer
+            </button>
+          )}
+        </div>
+
+        {result && (
+          <div className="alert alert-info" style={{ marginBottom: '20px', padding: '12px', background: '#dbeafe', color: '#1e40af', borderRadius: '8px', fontSize: '0.9rem' }}>
+            💾 Résultat sauvegardé - Vous pouvez naviguer vers d'autres pages, le résultat sera conservé
+          </div>
+        )}
 
         <div className="form-section">
           <div className="input-group">

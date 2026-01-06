@@ -96,7 +96,41 @@ function Alibaba() {
       }
     }
     loadCategories()
+    
+    // Charger les paramètres sauvegardés
+    try {
+      const savedCategorie = localStorage.getItem('alibaba_selectedCategorie')
+      const savedTerme = localStorage.getItem('alibaba_termeRecherche')
+      const savedTri = localStorage.getItem('alibaba_selectedTri')
+      const savedLimit = localStorage.getItem('alibaba_limit')
+      const savedData = localStorage.getItem('alibaba_data')
+      
+      if (savedCategorie !== null) setSelectedCategorie(savedCategorie)
+      if (savedTerme !== null) setTermeRecherche(savedTerme)
+      if (savedTri !== null) setSelectedTri(savedTri)
+      if (savedLimit !== null) setLimit(Number(savedLimit))
+      if (savedData) {
+        try {
+          setData(JSON.parse(savedData))
+        } catch (e) {
+          console.error('Erreur parsing alibaba_data:', e)
+        }
+      }
+    } catch (e) {
+      console.error('Erreur chargement localStorage Alibaba:', e)
+    }
   }, [])
+
+  // Sauvegarder les paramètres et données
+  useEffect(() => {
+    localStorage.setItem('alibaba_selectedCategorie', selectedCategorie)
+    localStorage.setItem('alibaba_termeRecherche', termeRecherche)
+    localStorage.setItem('alibaba_selectedTri', selectedTri)
+    localStorage.setItem('alibaba_limit', limit.toString())
+    if (data) {
+      localStorage.setItem('alibaba_data', JSON.stringify(data))
+    }
+  }, [selectedCategorie, termeRecherche, selectedTri, limit, data])
 
   const handleLoadData = async () => {
     setLoading(true)

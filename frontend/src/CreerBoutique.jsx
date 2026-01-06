@@ -35,6 +35,10 @@ function CreerBoutique() {
   const [descriptions, setDescriptions] = useState({})
   const [generatingDescriptions, setGeneratingDescriptions] = useState(false)
   
+  // États pour la validation de niche
+  const [nicheAnalysis, setNicheAnalysis] = useState(null)
+  const [validatingNiche, setValidatingNiche] = useState(false)
+  
   // États pour Google Trends
   const [showTrends, setShowTrends] = useState(false)
   const [trendsKeyword, setTrendsKeyword] = useState('')
@@ -42,6 +46,9 @@ function CreerBoutique() {
   const [trendsLoading, setTrendsLoading] = useState(false)
   const [trendsError, setTrendsError] = useState(null)
   const [trendsProducts, setTrendsProducts] = useState([])
+  
+  // État pour le feedback visuel lors de l'ajout
+  const [addedMessages, setAddedMessages] = useState({})
 
   // Fonction pour charger les produits depuis localStorage
   const chargerProduits = () => {
@@ -149,66 +156,8 @@ function CreerBoutique() {
       )
       
       if (response.data.produits && response.data.produits.length > 0) {
-        let produitsAvecTrends = response.data.produits
-        
-        // Analyser les tendances Google Trends pour les produits chargés
-        try {
-          setError('📊 Analyse des tendances Google Trends en cours...')
-          
-          const trendsResponse = await axios.post(
-            `${API_BASE_URL}/api/trends/validate-products`,
-            {
-              produits: response.data.produits.slice(0, Math.min(20, response.data.produits.length)), // Valider les 20 premiers max
-              timeframe: 'today 3-m',
-              geo: 'SN'
-            }
-          )
-          
-          if (trendsResponse.data.success && trendsResponse.data.analysis) {
-            const analysis = trendsResponse.data.analysis
-            
-            // Créer un map des validations par nom de produit
-            const validationsMap = {}
-            analysis.produits_go.forEach(item => {
-              validationsMap[item.produit.nom] = item.validation
-            })
-            analysis.produits_no_go.forEach(item => {
-              validationsMap[item.produit.nom] = item.validation
-            })
-            
-            // Enrichir les produits avec les scores de tendance
-            produitsAvecTrends = response.data.produits.map(produit => {
-              const validation = validationsMap[produit.nom]
-              if (validation) {
-                return {
-                  ...produit,
-                  trends_score: validation.score,
-                  trends_validated: validation.validated,
-                  trends_recommendation: validation.recommendation,
-                  trends_details: validation.details || []
-                }
-              }
-              return produit
-            })
-            
-            // Trier par score de tendance décroissant (produits validés en premier)
-            produitsAvecTrends.sort((a, b) => {
-              const scoreA = a.trends_score || 0
-              const scoreB = b.trends_score || 0
-              if (a.trends_validated && !b.trends_validated) return -1
-              if (!a.trends_validated && b.trends_validated) return 1
-              return scoreB - scoreA
-            })
-            
-            setError(null)
-          }
-        } catch (trendsErr) {
-          console.warn('Erreur analyse Google Trends:', trendsErr)
-          // On continue même si l'analyse échoue
-          setError(null)
-        }
-        
-        setProduitsDisponibles(produitsAvecTrends)
+        // Afficher les produits immédiatement, sans attendre Google Trends
+        setProduitsDisponibles(response.data.produits)
       } else {
         setError('Aucun produit trouvé pour cette catégorie')
         setProduitsDisponibles([])
@@ -222,23 +171,109 @@ function CreerBoutique() {
   }
 
   const ajouterABoutique = (produit) => {
-    // Vérifier si le produit n'est pas déjà dans la boutique
-    const existe = produits.some(p => 
-      (p.lien && produit.lien && p.lien === produit.lien) || 
-      p.nom === produit.nom
-    )
-
-    if (existe) {
-      setError('Ce produit est déjà dans votre boutique')
-      return
-    }
-
-    const nouveauxProduits = [...produits, produit]
-    setProduits(nouveauxProduits)
-    localStorage.setItem('boutique_produits', JSON.stringify(nouveauxProduits))
+    console.log('🛒 Ajout produit à la boutique:', produit)
     
-    // Notification pour rafraîchir si besoin
-    window.dispatchEvent(new Event('boutique-produits-updated'))
+    try {
+      if (!produit) {
+        console.error('❌ Produit est null ou undefined')
+        setError('Erreur: produit invalide')
+        return
+      }
+      
+      // Récupérer les produits existants directement depuis localStorage
+      let produitsExistants = []
+      try {
+        const stored = localStorage.getItem('boutique_produits')
+        console.log('localStorage actuel:', stored)
+        produitsExistants = stored ? JSON.parse(stored) : []
+        console.log('Produits existants:', produitsExistants.length)
+      } catch (e) {
+        console.error('Erreur lecture localStorage:', e)
+        produitsExistants = []
+      }
+      
+      // Vérifier si le produit n'est pas déjà présent (par lien ou par nom si pas de lien)
+      const existeDeja = produitsExistants.some(p => {
+        if (produit.lien && p.lien) {
+          return p.lien === produit.lien
+        }
+        // Si pas de lien, comparer par nom
+        if (produit.nom && p.nom) {
+          return p.nom === produit.nom
+        }
+        return false
+      })
+      
+      if (existeDeja) {
+        console.log('⚠️ Produit déjà présent')
+        setError('Ce produit est déjà dans votre boutique')
+        return
+      }
+      
+      // Créer une copie propre du produit
+      const produitAvecSource = {
+        nom: produit.nom || 'Produit sans nom',
+        prix: produit.prix || 0,
+        prix_texte: produit.prix_texte || `${produit.prix || 0} FCFA`,
+        lien: produit.lien || '',
+        image: produit.image || '',
+        marque: produit.marque || '',
+        categorie: produit.categorie || '',
+        note: produit.note || 'N/A',
+        remise: produit.remise || '',
+        source: produit.source || 'Jumia'
+      }
+      
+      console.log('Produit à ajouter:', produitAvecSource)
+      
+      produitsExistants.push(produitAvecSource)
+      
+      try {
+        localStorage.setItem('boutique_produits', JSON.stringify(produitsExistants))
+        console.log('✅ Produit sauvegardé dans localStorage')
+      } catch (e) {
+        console.error('❌ Erreur sauvegarde localStorage:', e)
+        setError(`Erreur sauvegarde: ${e.message}`)
+        return
+      }
+      
+      // Mettre à jour l'état local IMMÉDIATEMENT (nouvelle référence pour forcer le re-render)
+      console.log(`📦 Avant mise à jour: ${produits.length} produits dans l'état`)
+      setProduits([...produitsExistants])
+      console.log(`✅ État local mis à jour avec ${produitsExistants.length} produits`)
+      console.log(`📋 Produits dans localStorage:`, produitsExistants)
+      
+      // Feedback visuel
+      const key = produit.lien || produit.nom
+      setAddedMessages(prev => ({ ...prev, [key]: true }))
+      setTimeout(() => {
+        setAddedMessages(prev => {
+          const newState = { ...prev }
+          delete newState[key]
+          return newState
+        })
+      }, 3000)
+      
+      // Déclencher un événement personnalisé pour notifier les autres composants
+      try {
+        const event = new CustomEvent('boutique-produits-updated', {
+          detail: { produit: produitAvecSource, total: produitsExistants.length }
+        })
+        window.dispatchEvent(event)
+        console.log('✅ Événement boutique-produits-updated déclenché')
+        console.log(`📦 Total produits dans localStorage: ${produitsExistants.length}`)
+        
+        // Déclencher plusieurs fois pour garantir la synchronisation
+        setTimeout(() => window.dispatchEvent(new CustomEvent('boutique-produits-updated')), 200)
+        setTimeout(() => window.dispatchEvent(new CustomEvent('boutique-produits-updated')), 500)
+      } catch (e) {
+        console.error('Erreur déclenchement événement:', e)
+      }
+      
+    } catch (err) {
+      console.error('❌ Erreur dans ajouterABoutique:', err)
+      setError(`Erreur lors de l'ajout: ${err.message}`)
+    }
   }
 
   // Sauvegarder dans localStorage quand les produits changent
@@ -339,6 +374,86 @@ function CreerBoutique() {
       setError(err.response?.data?.detail || 'Erreur lors de la génération des descriptions')
     } finally {
       setGeneratingDescriptions(false)
+    }
+  }
+
+  // État pour la publication sur le marketplace
+  const [publishingToMarketplace, setPublishingToMarketplace] = useState(false)
+  const [publishMessage, setPublishMessage] = useState(null)
+
+  const publierSurMarketplace = async () => {
+    if (produits.length === 0) {
+      setError('Aucun produit à publier')
+      return
+    }
+
+    // Vérifier que les descriptions SEO sont générées
+    if (Object.keys(descriptions).length === 0) {
+      const confirmGenerate = window.confirm(
+        'Les descriptions SEO ne sont pas encore générées. Voulez-vous les générer maintenant avant de publier ?'
+      )
+      if (confirmGenerate) {
+        await genererDescriptionsSEO()
+        // Attendre un peu pour que les descriptions soient sauvegardées
+        await new Promise(resolve => setTimeout(resolve, 1000))
+      } else {
+        return
+      }
+    }
+
+    setPublishingToMarketplace(true)
+    setError(null)
+    setPublishMessage(null)
+
+    try {
+      // Préparer les produits avec leurs descriptions SEO et métadonnées
+      const produitsAPublier = produits.map((produit, index) => {
+        const produitData = {
+          produit: produit,
+          description_seo: descriptions[index] || null,
+          validation_data: null, // Peut être ajouté plus tard si validation Google Trends disponible
+          niche_data: nicheAnalysis || null,
+          user_id: null, // Peut être ajouté si système d'authentification
+          session_id: `session_${Date.now()}` // Session ID basique
+        }
+        return produitData
+      })
+
+      const response = await axios.post(
+        `${API_BASE_URL}/api/marketplace/publish-products-batch`,
+        produitsAPublier
+      )
+
+      if (response.data.success) {
+        const successCount = response.data.published
+        const totalCount = response.data.total
+        
+        setPublishMessage({
+          type: 'success',
+          text: `✅ ${successCount} produit(s) publié(s) avec succès sur tafa-business.com !`
+        })
+        
+        // Rediriger vers le marketplace après 2 secondes
+        setTimeout(() => {
+          window.open('http://localhost:3001/products', '_blank')
+        }, 2000)
+      } else {
+        setPublishMessage({
+          type: 'error',
+          text: 'Erreur lors de la publication'
+        })
+      }
+    } catch (err) {
+      console.error('Erreur publication marketplace:', err)
+      setPublishMessage({
+        type: 'error',
+        text: err.response?.data?.detail || err.message || 'Erreur lors de la publication sur le marketplace'
+      })
+    } finally {
+      setPublishingToMarketplace(false)
+      if (publishMessage) {
+        setTimeout(() => setPublishMessage(null), 5000)
+      }
     }
   }
 
@@ -684,11 +799,21 @@ function CreerBoutique() {
                           )}
                           <button
                             className="btn btn-small btn-success"
-                            onClick={() => ajouterABoutique(produit)}
-                            disabled={produits.some(p => p.lien === produit.lien || p.nom === produit.nom)}
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              ajouterABoutique(produit)
+                            }}
+                            disabled={produits.some(p => (p.lien && produit.lien && p.lien === produit.lien) || p.nom === produit.nom) || addedMessages[produit.lien || produit.nom]}
+                            style={{
+                              opacity: produits.some(p => (p.lien && produit.lien && p.lien === produit.lien) || p.nom === produit.nom) || addedMessages[produit.lien || produit.nom] ? 0.6 : 1,
+                              transition: 'all 0.3s'
+                            }}
                           >
-                            {produits.some(p => p.lien === produit.lien || p.nom === produit.nom) 
-                              ? '✓ Déjà ajouté' 
+                            {addedMessages[produit.lien || produit.nom]
+                              ? '✅ Ajouté !'
+                              : produits.some(p => (p.lien && produit.lien && p.lien === produit.lien) || p.nom === produit.nom)
+                              ? '✓ Déjà ajouté'
                               : '+ Ajouter à la boutique'}
                           </button>
                         </div>
@@ -987,11 +1112,23 @@ function CreerBoutique() {
                     
                     <button
                       className="btn btn-small btn-success"
-                      onClick={() => ajouterABoutique(produit)}
-                      disabled={produits.some(p => p.lien === produit.lien || p.nom === produit.nom)}
-                      style={{ marginTop: '10px' }}
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        ajouterABoutique(produit)
+                      }}
+                      disabled={produits.some(p => (p.lien && produit.lien && p.lien === produit.lien) || p.nom === produit.nom) || addedMessages[produit.lien || produit.nom]}
+                      style={{
+                        marginTop: '10px',
+                        opacity: produits.some(p => (p.lien && produit.lien && p.lien === produit.lien) || p.nom === produit.nom) || addedMessages[produit.lien || produit.nom] ? 0.6 : 1,
+                        transition: 'all 0.3s'
+                      }}
                     >
-                      {produits.some(p => p.lien === produit.lien || p.nom === produit.nom) ? '✓ Déjà ajouté' : '+ Ajouter à la boutique'}
+                      {addedMessages[produit.lien || produit.nom]
+                        ? '✅ Ajouté !'
+                        : produits.some(p => (p.lien && produit.lien && p.lien === produit.lien) || p.nom === produit.nom)
+                        ? '✓ Déjà ajouté'
+                        : '+ Ajouter à la boutique'}
                     </button>
                   </div>
                 </div>
@@ -1013,18 +1150,144 @@ function CreerBoutique() {
           </div>
         ) : (
           <>
+            {/* Analyse de Niche */}
+            {nicheAnalysis && (
+              <div className="niche-analysis-card" style={{
+                marginTop: '30px',
+                padding: '20px',
+                background: 'linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)',
+                borderRadius: '12px',
+                border: `3px solid ${nicheAnalysis.niveau === 'EXCELLENT' ? '#10b981' : nicheAnalysis.niveau === 'BON' ? '#3b82f6' : nicheAnalysis.niveau === 'MOYEN' ? '#f59e0b' : '#ef4444'}`,
+                boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                  <h3 style={{ margin: 0, color: '#1f2937', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span>{nicheAnalysis.niveau === 'EXCELLENT' ? '🟢' : nicheAnalysis.niveau === 'BON' ? '🔵' : nicheAnalysis.niveau === 'MOYEN' ? '🟡' : '🔴'}</span>
+                    <span>Analyse de Niche</span>
+                  </h3>
+                  <div style={{
+                    padding: '8px 16px',
+                    background: nicheAnalysis.niveau === 'EXCELLENT' ? '#10b981' : nicheAnalysis.niveau === 'BON' ? '#3b82f6' : nicheAnalysis.niveau === 'MOYEN' ? '#f59e0b' : '#ef4444',
+                    color: 'white',
+                    borderRadius: '20px',
+                    fontWeight: '700',
+                    fontSize: '1.1rem'
+                  }}>
+                    {nicheAnalysis.score_coherence}/100
+                  </div>
+                </div>
+                
+                <div style={{ marginBottom: '15px' }}>
+                  <h4 style={{ color: '#667eea', marginBottom: '8px' }}>🎯 Niche identifiée :</h4>
+                  <p style={{ fontSize: '1.1rem', fontWeight: '600', color: '#1f2937' }}>
+                    {nicheAnalysis.niche_identifiee}
+                  </p>
+                </div>
+                
+                <div style={{ marginBottom: '15px' }}>
+                  <h4 style={{ color: '#667eea', marginBottom: '8px' }}>📊 Analyse :</h4>
+                  <p style={{ color: '#4b5563', lineHeight: '1.6' }}>
+                    {nicheAnalysis.analyse}
+                  </p>
+                </div>
+                
+                {nicheAnalysis.points_forts && nicheAnalysis.points_forts.length > 0 && (
+                  <div style={{ marginBottom: '15px' }}>
+                    <h4 style={{ color: '#10b981', marginBottom: '8px' }}>✅ Points forts :</h4>
+                    <ul style={{ margin: 0, paddingLeft: '20px', color: '#4b5563' }}>
+                      {nicheAnalysis.points_forts.map((point, idx) => (
+                        <li key={idx} style={{ marginBottom: '4px' }}>{point}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                
+                {nicheAnalysis.points_faibles && nicheAnalysis.points_faibles.length > 0 && (
+                  <div style={{ marginBottom: '15px' }}>
+                    <h4 style={{ color: '#ef4444', marginBottom: '8px' }}>⚠️ Points à améliorer :</h4>
+                    <ul style={{ margin: 0, paddingLeft: '20px', color: '#4b5563' }}>
+                      {nicheAnalysis.points_faibles.map((point, idx) => (
+                        <li key={idx} style={{ marginBottom: '4px' }}>{point}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                
+                {nicheAnalysis.recommandations && nicheAnalysis.recommandations.length > 0 && (
+                  <div style={{ marginBottom: '15px' }}>
+                    <h4 style={{ color: '#667eea', marginBottom: '8px' }}>💡 Recommandations :</h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {nicheAnalysis.recommandations.map((rec, idx) => (
+                        <div key={idx} style={{
+                          padding: '10px',
+                          background: 'white',
+                          borderRadius: '8px',
+                          border: '1px solid #e5e7eb'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                            <span style={{
+                              padding: '4px 8px',
+                              background: rec.type === 'AJOUTER' ? '#d1fae5' : rec.type === 'RETIRER' ? '#fee2e2' : '#fef3c7',
+                              color: rec.type === 'AJOUTER' ? '#065f46' : rec.type === 'RETIRER' ? '#991b1b' : '#92400e',
+                              borderRadius: '4px',
+                              fontSize: '0.75rem',
+                              fontWeight: '600'
+                            }}>
+                              {rec.type}
+                            </span>
+                            <strong style={{ color: '#1f2937' }}>{rec.produit}</strong>
+                          </div>
+                          <p style={{ margin: 0, color: '#6b7280', fontSize: '0.9rem' }}>{rec.raison}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginTop: '15px' }}>
+                  <div style={{ padding: '12px', background: 'white', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '0.85rem', color: '#6b7280', marginBottom: '4px' }}>Public cible</div>
+                    <div style={{ fontWeight: '600', color: '#1f2937' }}>{nicheAnalysis.public_cible}</div>
+                  </div>
+                  <div style={{ padding: '12px', background: 'white', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '0.85rem', color: '#6b7280', marginBottom: '4px' }}>Potentiel cross-selling</div>
+                    <div style={{ fontWeight: '600', color: '#1f2937' }}>{nicheAnalysis.potentiel_cross_selling}</div>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             {/* Résumé */}
             <div className="boutique-summary">
               <div className="summary-card">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                   <h3 style={{ margin: 0 }}>📊 Résumé de votre boutique</h3>
-                  <button
-                    className="btn btn-secondary btn-small"
-                    onClick={chargerProduits}
-                    title="Rafraîchir la liste"
-                  >
-                    🔄 Actualiser
-                  </button>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    {produits.length >= 3 && (
+                      <button
+                        className="btn btn-primary btn-small"
+                        onClick={validerNiche}
+                        disabled={validatingNiche}
+                        title="Valider la cohérence de niche"
+                      >
+                        {validatingNiche ? (
+                          <>
+                            <span className="spinner"></span>
+                            Analyse...
+                          </>
+                        ) : (
+                          '🔍 Valider la niche'
+                        )}
+                      </button>
+                    )}
+                    <button
+                      className="btn btn-secondary btn-small"
+                      onClick={chargerProduits}
+                      title="Rafraîchir la liste"
+                    >
+                      🔄 Actualiser
+                    </button>
+                  </div>
                 </div>
                 <div className="summary-stats">
                   <div className="stat-item">
@@ -1046,20 +1309,45 @@ function CreerBoutique() {
                 <p style={{ color: '#6b7280', marginBottom: '15px', fontSize: '0.9rem' }}>
                   Génère des descriptions optimisées pour le SEO, adaptées à WooCommerce et Shopify
                 </p>
-                <button
-                  className="btn btn-primary"
-                  onClick={genererDescriptionsSEO}
-                  disabled={generatingDescriptions || produits.length === 0}
-                >
-                  {generatingDescriptions ? (
-                    <>
-                      <span className="spinner"></span>
-                      Génération en cours...
-                    </>
-                  ) : (
-                    '✨ Générer les descriptions SEO'
-                  )}
-                </button>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <button
+                    className="btn btn-primary"
+                    onClick={genererDescriptionsSEO}
+                    disabled={generatingDescriptions || produits.length === 0}
+                  >
+                    {generatingDescriptions ? (
+                      <>
+                        <span className="spinner"></span>
+                        Génération en cours...
+                      </>
+                    ) : (
+                      '✨ Générer les descriptions SEO'
+                    )}
+                  </button>
+                  
+                  {/* Bouton Publier sur Marketplace */}
+                  <button
+                    className="btn btn-success"
+                    onClick={publierSurMarketplace}
+                    disabled={publishingToMarketplace || produits.length === 0}
+                  >
+                    {publishingToMarketplace ? (
+                      <>
+                        <span className="spinner"></span>
+                        Publication en cours...
+                      </>
+                    ) : (
+                      '🚀 Publier sur tafa-business.com'
+                    )}
+                  </button>
+                </div>
+                
+                {/* Message de publication */}
+                {publishMessage && (
+                  <div className={`alert ${publishMessage.type === 'success' ? 'alert-success' : 'alert-error'}`} style={{ marginTop: '15px' }}>
+                    {publishMessage.text}
+                  </div>
+                )}
               </div>
             </div>
 

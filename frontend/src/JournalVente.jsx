@@ -45,8 +45,47 @@ function JournalVente() {
   });
   
   // Période de comparaison
-  const [anneeComparee, setAnneeComparee] = useState(new Date().getFullYear());
-  const [moisCompare, setMoisCompare] = useState(null);
+  const [anneeComparee, setAnneeComparee] = useState(() => {
+    const saved = localStorage.getItem('journal_anneeComparee')
+    return saved ? Number(saved) : new Date().getFullYear()
+  });
+  const [moisCompare, setMoisCompare] = useState(() => {
+    const saved = localStorage.getItem('journal_moisCompare')
+    return saved ? Number(saved) : null
+  });
+
+  // Charger les paramètres sauvegardés au montage
+  useEffect(() => {
+    try {
+      const savedBoutiqueId = localStorage.getItem('journal_selectedBoutiqueId')
+      const savedFiltres = localStorage.getItem('journal_filtres')
+      
+      if (savedBoutiqueId !== null && savedBoutiqueId !== 'null') {
+        setSelectedBoutiqueId(Number(savedBoutiqueId))
+      }
+      if (savedFiltres) {
+        try {
+          setFiltres(JSON.parse(savedFiltres))
+        } catch (e) {
+          console.error('Erreur parsing journal_filtres:', e)
+        }
+      }
+    } catch (e) {
+      console.error('Erreur chargement localStorage JournalVente:', e)
+    }
+  }, [])
+
+  // Sauvegarder les paramètres
+  useEffect(() => {
+    if (selectedBoutiqueId !== null) {
+      localStorage.setItem('journal_selectedBoutiqueId', selectedBoutiqueId.toString())
+    }
+    localStorage.setItem('journal_filtres', JSON.stringify(filtres))
+    localStorage.setItem('journal_anneeComparee', anneeComparee.toString())
+    if (moisCompare !== null) {
+      localStorage.setItem('journal_moisCompare', moisCompare.toString())
+    }
+  }, [selectedBoutiqueId, filtres, anneeComparee, moisCompare])
 
   useEffect(() => {
     chargerBoutiques();

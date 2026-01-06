@@ -1,0 +1,223 @@
+================================
+
+CURSOR RULES — TAFA BUSINESS
+
+================================
+
+🎯 CONTEXTE GLOBAL
+
+Tu travailles sur la refonte complète du site http://tafa-business.com .
+Le site actuel est sous WordPress et sert UNIQUEMENT de référence visuelle (UX/UI).
+Le nouveau site est développé FROM SCRATCH en Next.js.
+
+WordPress ne doit JAMAIS être considéré comme une dépendance technique.
+Aucun code PHP ne doit être réutilisé ou interprété.
+
+🧠 OBJECTIF PRODUIT
+
+Construire un site e-commerce moderne, rapide et data-driven qui :
+
+reproduit à ~95% le rendu visuel du site existant
+
+améliore fortement les performances
+
+est prêt pour le tracking Meta (Pixel + Conversions API)
+
+peut consommer des données issues d’un moteur d’insights (Jumia, Google Trends, etc.)
+
+prépare le terrain pour des usages avancés en machine learning
+
+🛠️ STACK TECHNIQUE IMPOSÉE
+
+Next.js (App Router)
+
+TypeScript
+
+Tailwind CSS
+
+Architecture orientée composants
+
+API-first (les données viennent d’APIs, pas de logique embarquée)
+
+Ne jamais proposer :
+
+WordPress
+
+PHP
+
+jQuery
+
+plugins WordPress
+
+solutions low-code / no-code
+
+🎨 DESIGN & UI
+
+Le design doit être inspiré du rendu visible de http://tafa-business.com
+
+Objectif : même hiérarchie visuelle, mêmes sections, mêmes proportions
+
+Pas de pixel-perfect requis
+
+Spacing large, design premium, lisible, mobile-first
+
+Utiliser Tailwind pour garantir cohérence et maintenabilité
+
+Toujours privilégier :
+
+lisibilité
+
+respiration visuelle
+
+structure claire
+
+🧩 ORGANISATION DU CODE
+
+Chaque section visuelle = un composant React
+
+Les pages doivent être composées de composants, jamais monolithiques
+
+Séparer clairement :
+
+layout
+
+pages
+
+composants UI
+
+logique data (fetch, hooks, services)
+
+Exemple attendu :
+/app
+/page.tsx
+/products/page.tsx
+/components
+/Header.tsx
+/Hero.tsx
+/ProductGrid.tsx
+/Footer.tsx
+
+📈 SEO & PERFORMANCE
+
+SEO-first (balises, structure HTML propre)
+
+Utiliser les capacités SSR / SSG de Next.js
+
+Ne jamais dégrader les performances pour des effets visuels inutiles
+
+📊 DATA, BUSINESS LOGIC & ML-READY (CRITIQUE)
+
+Toutes les données manipulées par le site doivent être :
+
+structurées
+
+explicites
+
+historisées
+
+exploitables pour de futurs modèles de machine learning
+
+Principes obligatoires :
+
+Aucune donnée implicite
+
+toujours préférer des champs nommés
+
+éviter les états cachés ou calculs non traçables
+
+Schémas de données stables
+
+typage strict (TypeScript)
+
+structures cohérentes entre frontend et backend
+
+Événements traçables
+
+vues produit
+
+clics
+
+ajouts au panier
+
+conversions
+
+abandons
+
+Séparation stricte :
+
+collecte des données
+
+affichage UI
+
+logique métier
+
+exploitation ML
+
+Données orientées entraînement
+
+timestamps systématiques
+
+identifiants uniques (user, session, produit)
+
+contexte (source, device, canal)
+
+Le site doit pouvoir servir plus tard à :
+
+entraîner des modèles de recommandation
+
+scorer des produits
+
+prédire des tendances
+
+optimiser les prix
+
+personnaliser l’expérience utilisateur
+
+Aucune décision technique ne doit empêcher ces usages futurs.
+
+📣 TRACKING & MARKETING
+
+Le site doit être compatible avec :
+
+Meta Pixel
+
+Meta Conversions API (server-side)
+
+Le tracking doit être propre, explicite et contrôlé
+
+Les événements marketing doivent être alignés avec les besoins ML
+
+Ne jamais utiliser de plugins tiers opaques
+
+🚫 INTERDIT ABSOLU
+
+“Migrer automatiquement WordPress vers Next.js”
+
+Copier du code PHP
+
+Utiliser WordPress comme backend fonctionnel
+
+Générer du code sans structure claire
+
+Introduire de la dette technique “temporaire”
+
+Stocker des données non exploitables ou ambiguës
+
+✅ RÈGLE D’OR
+
+Si une décision technique n’améliore pas :
+Toujoours respecter le principe mobile first et le responsivenes mobile
+
+la clarté
+
+la performance
+
+la scalabilité
+
+la traçabilité des données
+
+ou la capacité future à entraîner des modèles ML
+
+Alors elle doit être rejetée.
+
+FIN DES RÈGLES

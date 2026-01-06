@@ -292,6 +292,98 @@ def generer_descriptions_batch_boutique(produits: List[Dict]) -> List[Dict]:
     return resultats
 
 
+def generer_description_seo_simple(texte_produit: str) -> Dict:
+    """
+    Génère une description SEO-friendly à partir d'un texte simple (nom ou description de produit).
+    Améliore le texte pour le rendre unique et optimisé pour le SEO.
+    
+    Args:
+        texte_produit: Texte du produit (nom ou description)
+        
+    Returns:
+        Dictionnaire avec description SEO, meta description et mots-clés
+    """
+    try:
+        # Construire le prompt pour améliorer et créer une description SEO
+        prompt = f"""Tu es un expert SEO e-commerce spécialisé dans WooCommerce et Shopify.
+À partir de ce texte de produit (nom ou description), génère une description SEO-friendly optimisée et unique:
+
+Texte original: {texte_produit}
+
+Génère:
+1. Une DESCRIPTION SEO (300-500 mots) qui:
+   - Améliore et enrichit le texte original
+   - Est optimisée pour les moteurs de recherche
+   - Contient naturellement les mots-clés importants
+   - Décrit les caractéristiques, avantages et bénéfices
+   - Utilise des balises HTML (h2, h3, ul, li, strong) pour structurer le contenu
+   - Est adaptée au marché sénégalais/africain
+   - Inclut des informations sur l'utilisation, la qualité, les garanties
+   - Est unique et engageante
+
+2. Une META DESCRIPTION (150-160 caractères) pour les résultats de recherche
+
+3. Des MOTS-CLÉS (10-15 mots-clés séparés par des virgules) pertinents
+
+Format de réponse JSON:
+{{
+    "description_seo": "<h2>Titre</h2><p>Description détaillée...</p>",
+    "meta_description": "Description courte pour les résultats de recherche",
+    "mots_cles": "mot-clé1, mot-clé2, mot-clé3"
+}}
+
+La description doit être en français, adaptée au marché sénégalais, et optimisée pour WooCommerce/Shopify."""
+
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "Tu es un expert SEO e-commerce et rédacteur web spécialisé dans les descriptions de produits pour WooCommerce et Shopify. Tu améliores les textes pour les rendre uniques et optimisés pour le SEO."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7,
+            max_tokens=1000
+        )
+        
+        # Extraire la réponse
+        content = response.choices[0].message.content.strip()
+        
+        # Parser le JSON (peut être dans un bloc de code)
+        if "```json" in content:
+            content = content.split("```json")[1].split("```")[0].strip()
+        elif "```" in content:
+            content = content.split("```")[1].split("```")[0].strip()
+        
+        try:
+            result = json.loads(content)
+        except json.JSONDecodeError:
+            # Si le parsing échoue, créer une description par défaut
+            result = {
+                "description_seo": f"<h2>{texte_produit}</h2><p>Découvrez ce produit exceptionnel : {texte_produit}. Produit de qualité adapté au marché sénégalais avec des caractéristiques uniques qui répondent à vos besoins.</p>",
+                "meta_description": f"{texte_produit} - Produit de qualité disponible au Sénégal",
+                "mots_cles": f"{texte_produit}, produit, ecommerce, Sénégal"
+            }
+        
+        description_data = {
+            "description_seo": result.get("description_seo", ""),
+            "meta_description": result.get("meta_description", ""),
+            "mots_cles": result.get("mots_cles", ""),
+            "from_cache": False
+        }
+        
+        return description_data
+        
+    except Exception as e:
+        print(f"❌ Erreur génération description SEO simple: {e}")
+        # Retourner une description par défaut
+        return {
+            "description_seo": f"<h2>{texte_produit}</h2><p>Produit de qualité : {texte_produit}. Adapté au marché sénégalais.</p>",
+            "meta_description": f"{texte_produit} - Produit disponible au Sénégal",
+            "mots_cles": f"{texte_produit}, produit, Sénégal",
+            "from_cache": False,
+            "error": str(e)
+        }
+
+
 # Initialiser la DB au chargement du module
 init_boutique_descriptions_db()
 

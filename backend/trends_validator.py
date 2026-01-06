@@ -21,44 +21,58 @@ def extract_keywords_from_product(produit: Dict) -> List[str]:
     keywords = []
     
     # Nom du produit
-    nom = produit.get('nom', '').lower()
+    nom = produit.get('nom', '').lower().strip()
     if nom:
-        # Nettoyer le nom (retirer les caractères spéciaux, les numéros de modèle)
-        nom_clean = re.sub(r'\d+', '', nom)  # Retirer les chiffres
-        nom_clean = re.sub(r'[^\w\s]', ' ', nom_clean)  # Retirer la ponctuation
+        # Nettoyer le nom mais garder les mots importants
+        # Ne pas retirer tous les chiffres, seulement ceux qui sont isolés
+        nom_clean = re.sub(r'[^\w\s]', ' ', nom)  # Retirer la ponctuation mais garder les espaces
         mots = nom_clean.split()
         
-        # Garder les mots significatifs (plus de 3 caractères)
-        mots_significatifs = [m for m in mots if len(m) > 3]
+        # Filtrer les mots vides et trop courts
+        mots = [m.strip() for m in mots if m.strip() and len(m.strip()) > 2]
         
-        # Prendre les 2-3 premiers mots les plus importants
-        if len(mots_significatifs) >= 2:
-            keywords.append(' '.join(mots_significatifs[:2]))
-            keywords.append(mots_significatifs[0])  # Premier mot seul
-        elif len(mots_significatifs) == 1:
-            keywords.append(mots_significatifs[0])
+        if mots:
+            # Prendre le nom complet (jusqu'à 4 mots)
+            nom_complet = ' '.join(mots[:4])
+            if len(nom_complet) > 5:  # Au moins 5 caractères
+                keywords.append(nom_complet)
+            
+            # Prendre les 2-3 premiers mots
+            if len(mots) >= 2:
+                keywords.append(' '.join(mots[:2]))
+            
+            # Prendre le premier mot seul s'il est significatif
+            if len(mots[0]) > 3:
+                keywords.append(mots[0])
     
     # Catégorie
-    categorie = produit.get('categorie', '').lower()
-    if categorie and categorie not in keywords:
-        keywords.append(categorie)
+    categorie = produit.get('categorie', '').lower().strip()
+    if categorie and len(categorie) > 2:
+        # Ajouter la catégorie complète
+        if categorie not in keywords:
+            keywords.append(categorie)
+        
+        # Si la catégorie contient plusieurs mots, prendre le premier
+        categorie_mots = categorie.split()
+        if len(categorie_mots) > 1 and categorie_mots[0] not in keywords:
+            keywords.append(categorie_mots[0])
     
     # Marque
-    marque = produit.get('marque', '').lower()
-    if marque and marque not in keywords:
-        # Ne pas ajouter la marque seule si c'est trop générique (Samsung, Apple, etc.)
-        marques_generiques = ['samsung', 'apple', 'sony', 'lg', 'huawei', 'xiaomi', 'oppo', 'vivo']
-        if marque not in marques_generiques:
+    marque = produit.get('marque', '').lower().strip()
+    if marque and len(marque) > 2:
+        # Ne pas exclure les marques génériques, elles peuvent être utiles
+        if marque not in keywords:
             keywords.append(marque)
     
-    # Retirer les doublons et limiter à 3 mots-clés max
+    # Retirer les doublons et limiter à 5 mots-clés max (pour avoir plus d'options)
     keywords_unique = []
     seen = set()
     for kw in keywords:
-        if kw and kw not in seen and len(kw) > 2:
-            keywords_unique.append(kw)
-            seen.add(kw)
-            if len(keywords_unique) >= 3:
+        kw_clean = kw.strip()
+        if kw_clean and kw_clean.lower() not in seen and len(kw_clean) > 2:
+            keywords_unique.append(kw_clean)
+            seen.add(kw_clean.lower())  # Comparaison insensible à la casse
+            if len(keywords_unique) >= 5:
                 break
     
     return keywords_unique
@@ -79,6 +93,8 @@ def validate_product_trend(produit: Dict, timeframe: str = 'today 3-m', geo: str
     try:
         # Extraire les mots-clés du produit
         keywords = extract_keywords_from_product(produit)
+        print(f"[DEBUG] Produit: {produit.get('nom', 'N/A')}")
+        print(f"[DEBUG] Mots-clés extraits: {keywords}")
         
         if not keywords:
             return {
@@ -96,10 +112,15 @@ def validate_product_trend(produit: Dict, timeframe: str = 'today 3-m', geo: str
             geo=geo
         )
         
+        print(f"[DEBUG] Trends result success: {trends_result.get('success')}")
+        print(f"[DEBUG] Trends data: {trends_result.get('trends')}")
+        
         if not trends_result.get("success") or not trends_result.get("trends"):
+            error_msg = trends_result.get("error", "Aucune donnée disponible")
+            print(f"[DEBUG] Erreur Google Trends: {error_msg}")
             return {
                 "validated": False,
-                "reason": "Aucune donnée Google Trends disponible",
+                "reason": f"Aucune donnée Google Trends disponible: {error_msg}",
                 "keywords": keywords,
                 "trends_data": None,
                 "score": 0
@@ -107,6 +128,8 @@ def validate_product_trend(produit: Dict, timeframe: str = 'today 3-m', geo: str
         
         # Analyser les tendances
         trends = trends_result.get("trends", [])
+        print(f"[DEBUG] Nombre de tendances trouvées: {len(trends)}")
+        
         validation_score = 0
         validation_details = []
         
@@ -116,12 +139,17 @@ def validate_product_trend(produit: Dict, timeframe: str = 'today 3-m', geo: str
             max_value = trend.get("max", 0)
             current_value = 0
             
+            print(f"[DEBUG] Analyse keyword '{keyword}': average={average}, max={max_value}")
+            
             # Calculer la valeur actuelle (dernière valeur disponible)
             data_points = trend.get("data", [])
             if data_points:
                 # Prendre la moyenne des 4 dernières semaines
                 recent_values = [p.get("value", 0) for p in data_points[-4:]]
                 current_value = sum(recent_values) / len(recent_values) if recent_values else 0
+                print(f"[DEBUG] Valeur actuelle (moyenne 4 dernières semaines): {current_value}")
+            else:
+                print(f"[DEBUG] Aucun point de données pour '{keyword}'")
             
             # Score de validation basé sur plusieurs critères
             score_keyword = 0
@@ -129,23 +157,42 @@ def validate_product_trend(produit: Dict, timeframe: str = 'today 3-m', geo: str
             # 1. Intérêt moyen élevé (score 0-30)
             if average >= 50:
                 score_keyword += 30
+                print(f"[DEBUG] Score intérêt moyen: +30 (average={average})")
             elif average >= 30:
                 score_keyword += 20
+                print(f"[DEBUG] Score intérêt moyen: +20 (average={average})")
             elif average >= 15:
                 score_keyword += 10
+                print(f"[DEBUG] Score intérêt moyen: +10 (average={average})")
+            elif average > 0:
+                score_keyword += 5  # Même un faible intérêt mérite quelques points
+                print(f"[DEBUG] Score intérêt moyen: +5 (average={average})")
+            else:
+                print(f"[DEBUG] Score intérêt moyen: 0 (average={average})")
             
             # 2. Tendance à la hausse (score 0-40)
-            if current_value > average * 1.2:  # 20% au-dessus de la moyenne
-                score_keyword += 40
-                validation_details.append(f"📈 '{keyword}' en forte hausse (+{((current_value/average - 1) * 100):.0f}%)")
-            elif current_value > average * 1.1:  # 10% au-dessus
-                score_keyword += 25
-                validation_details.append(f"📈 '{keyword}' en hausse (+{((current_value/average - 1) * 100):.0f}%)")
-            elif current_value >= average * 0.9:  # Stable
-                score_keyword += 15
-                validation_details.append(f"➡️ '{keyword}' stable")
+            if average > 0:  # Éviter division par zéro
+                if current_value > average * 1.2:  # 20% au-dessus de la moyenne
+                    score_keyword += 40
+                    validation_details.append(f"📈 '{keyword}' en forte hausse (+{((current_value/average - 1) * 100):.0f}%)")
+                    print(f"[DEBUG] Score tendance: +40 (forte hausse)")
+                elif current_value > average * 1.1:  # 10% au-dessus
+                    score_keyword += 25
+                    validation_details.append(f"📈 '{keyword}' en hausse (+{((current_value/average - 1) * 100):.0f}%)")
+                    print(f"[DEBUG] Score tendance: +25 (hausse)")
+                elif current_value >= average * 0.9:  # Stable
+                    score_keyword += 15
+                    validation_details.append(f"➡️ '{keyword}' stable")
+                    print(f"[DEBUG] Score tendance: +15 (stable)")
+                else:
+                    validation_details.append(f"📉 '{keyword}' en baisse")
+                    print(f"[DEBUG] Score tendance: 0 (baisse)")
             else:
-                validation_details.append(f"📉 '{keyword}' en baisse")
+                # Si average = 0, on donne quand même des points si current_value > 0
+                if current_value > 0:
+                    score_keyword += 10
+                    validation_details.append(f"📊 '{keyword}' avec activité récente")
+                    print(f"[DEBUG] Score tendance: +10 (activité récente sans historique)")
             
             # 3. Pic récent (score 0-30)
             if max_value > 0:
@@ -155,8 +202,23 @@ def validate_product_trend(produit: Dict, timeframe: str = 'today 3-m', geo: str
                     if recent_max >= max_value * 0.8:  # Le max est récent
                         score_keyword += 30
                         validation_details.append(f"🔥 Pic récent pour '{keyword}'")
+                        print(f"[DEBUG] Score pic récent: +30")
+                    elif recent_max >= max_value * 0.5:
+                        score_keyword += 15
+                        validation_details.append(f"📊 Activité récente pour '{keyword}'")
+                        print(f"[DEBUG] Score pic récent: +15")
             
+            print(f"[DEBUG] Score total pour '{keyword}': {score_keyword}")
             validation_score = max(validation_score, score_keyword)
+        
+        print(f"[DEBUG] Score de validation final: {validation_score}/100")
+        
+        # Si aucun score n'a été calculé mais qu'on a des données, donner un score minimal
+        if validation_score == 0 and trends and len(trends) > 0:
+            # Donner au moins 5 points si on a des données (même si faibles)
+            validation_score = 5
+            validation_details.append("📊 Données Google Trends disponibles mais intérêt faible")
+            print(f"[DEBUG] Score minimal attribué: 5 points")
         
         # Déterminer si le produit est validé
         validated = validation_score >= 50  # Seuil de validation
@@ -172,7 +234,7 @@ def validate_product_trend(produit: Dict, timeframe: str = 'today 3-m', geo: str
             "reason": reason,
             "keywords": keywords,
             "trends_data": trends_result,
-            "score": validation_score,
+            "score": int(validation_score),  # S'assurer que c'est un entier
             "details": validation_details,
             "recommendation": get_recommendation(validation_score, trends_result)
         }

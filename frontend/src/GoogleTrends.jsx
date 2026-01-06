@@ -5,14 +5,66 @@ import './App.css';
 const API_BASE_URL = 'http://localhost:8000';
 
 function GoogleTrends() {
-  const [keywords, setKeywords] = useState(['']);
-  const [timeframe, setTimeframe] = useState('today 12-m');
-  const [geo, setGeo] = useState('SN');
+  // Charger les valeurs sauvegardées ou utiliser les valeurs par défaut
+  const loadSavedState = () => {
+    try {
+      const savedKeywords = localStorage.getItem('googletrends_keywords')
+      const savedTimeframe = localStorage.getItem('googletrends_timeframe')
+      const savedGeo = localStorage.getItem('googletrends_geo')
+      const savedTrendsData = localStorage.getItem('googletrends_trendsData')
+      const savedCompareData = localStorage.getItem('googletrends_compareData')
+      const savedActiveTab = localStorage.getItem('googletrends_activeTab')
+      
+      return {
+        keywords: savedKeywords ? JSON.parse(savedKeywords) : [''],
+        timeframe: savedTimeframe || 'today 12-m',
+        geo: savedGeo || 'SN',
+        trendsData: savedTrendsData ? JSON.parse(savedTrendsData) : null,
+        compareData: savedCompareData ? JSON.parse(savedCompareData) : null,
+        activeTab: savedActiveTab || 'trends'
+      }
+    } catch (e) {
+      console.error('Erreur chargement localStorage GoogleTrends:', e)
+      return {
+        keywords: [''],
+        timeframe: 'today 12-m',
+        geo: 'SN',
+        trendsData: null,
+        compareData: null,
+        activeTab: 'trends'
+      }
+    }
+  }
+
+  const savedState = loadSavedState()
+  
+  const [keywords, setKeywords] = useState(savedState.keywords);
+  const [timeframe, setTimeframe] = useState(savedState.timeframe);
+  const [geo, setGeo] = useState(savedState.geo);
   const [loading, setLoading] = useState(false);
-  const [trendsData, setTrendsData] = useState(null);
-  const [compareData, setCompareData] = useState(null);
+  const [trendsData, setTrendsData] = useState(savedState.trendsData);
+  const [compareData, setCompareData] = useState(savedState.compareData);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState('trends');
+  const [activeTab, setActiveTab] = useState(savedState.activeTab);
+  
+  // États pour la validation de produits
+  const [validationProduits, setValidationProduits] = useState('');
+  const [validationResults, setValidationResults] = useState(null);
+  const [validatingProducts, setValidatingProducts] = useState(false);
+
+  // Sauvegarder les paramètres
+  useEffect(() => {
+    localStorage.setItem('googletrends_keywords', JSON.stringify(keywords))
+    localStorage.setItem('googletrends_timeframe', timeframe)
+    localStorage.setItem('googletrends_geo', geo)
+    localStorage.setItem('googletrends_activeTab', activeTab)
+    if (trendsData) {
+      localStorage.setItem('googletrends_trendsData', JSON.stringify(trendsData))
+    }
+    if (compareData) {
+      localStorage.setItem('googletrends_compareData', JSON.stringify(compareData))
+    }
+  }, [keywords, timeframe, geo, activeTab, trendsData, compareData])
 
   const addKeyword = () => {
     if (keywords.length < 5) {
@@ -100,6 +152,49 @@ function GoogleTrends() {
   const formatDate = (dateStr) => {
     const date = new Date(dateStr);
     return date.toLocaleDateString('fr-FR', { year: 'numeric', month: 'short', day: 'numeric' });
+  };
+
+  const validateProducts = async () => {
+    // Parser les produits depuis le texte (format: nom, prix, catégorie - un par ligne)
+    const lines = validationProduits.split('\n').filter(line => line.trim() !== '');
+    if (lines.length === 0) {
+      setError('Veuillez entrer au moins un produit');
+      return;
+    }
+
+    // Convertir les lignes en produits
+    const produits = lines.map((line, index) => {
+      const parts = line.split(',').map(p => p.trim());
+      return {
+        nom: parts[0] || `Produit ${index + 1}`,
+        prix: parts[1] ? parseFloat(parts[1]) : 0,
+        categorie: parts[2] || '',
+        prix_texte: parts[1] ? `${parts[1]} FCFA` : '0 FCFA'
+      };
+    });
+
+    setValidatingProducts(true);
+    setError(null);
+    setValidationResults(null);
+
+    try {
+      const response = await axios.post(`${API_BASE_URL}/api/trends/validate-products`, {
+        produits: produits,
+        timeframe: timeframe,
+        geo: geo
+      });
+
+      if (response.data.success && response.data.analysis) {
+        setValidationResults(response.data.analysis);
+      } else {
+        setError('Erreur lors de la validation');
+      }
+    } catch (err) {
+      console.error('Erreur:', err);
+      setError(err.response?.data?.detail || 'Erreur lors de la validation des produits');
+    } finally {
+      setValidatingProducts(false);
+    }
   };
 
   return (
@@ -286,6 +381,159 @@ function GoogleTrends() {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Validation de produits */}
+      <div className="trends-config" style={{ marginTop: '40px' }}>
+        <h2>🔍 Validation de Produits par Google Trends</h2>
+        <p style={{ color: '#6b7280', marginBottom: '20px' }}>
+          Entrez vos produits (un par ligne, format: Nom, Prix, Catégorie) pour valider leur potentiel avec Google Trends
+        </p>
+        
+        <div className="form-section">
+          <label>Liste des produits (format: Nom, Prix, Catégorie):</label>
+          <textarea
+            value={validationProduits}
+            onChange={(e) => setValidationProduits(e.target.value)}
+            placeholder="Exemple:&#10;Perruque afro, 15000, Beauté&#10;Shampooing cheveux, 5000, Soin&#10;Accessoire cheveux, 3000, Beauté"
+            rows={8}
+            style={{
+              width: '100%',
+              padding: '12px',
+              borderRadius: '8px',
+              border: '2px solid #e5e7eb',
+              fontSize: '0.9rem',
+              fontFamily: 'monospace',
+              resize: 'vertical'
+            }}
+          />
+          <small style={{ color: '#6b7280', display: 'block', marginTop: '5px' }}>
+            Un produit par ligne. Format: Nom, Prix (optionnel), Catégorie (optionnel)
+          </small>
+        </div>
+
+        <button
+          onClick={validateProducts}
+          disabled={validatingProducts || !validationProduits.trim()}
+          className="btn btn-primary"
+          style={{ marginTop: '15px' }}
+        >
+          {validatingProducts ? '⏳ Validation en cours...' : '✅ Valider les produits'}
+        </button>
+      </div>
+
+      {/* Résultats de validation */}
+      {validationResults && (
+        <div className="trends-results" style={{ marginTop: '30px' }}>
+          <h2>📊 Résultats de Validation Google Trends</h2>
+          
+          <div style={{ marginTop: '20px', padding: '20px', background: 'white', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '20px' }}>
+              <div className="stat-box">
+                <div className="stat-label">Produits validés</div>
+                <div className="stat-value" style={{ color: '#10b981' }}>
+                  {validationResults.produits_go?.length || 0}
+                </div>
+              </div>
+              <div className="stat-box">
+                <div className="stat-label">Produits non validés</div>
+                <div className="stat-value" style={{ color: '#ef4444' }}>
+                  {validationResults.produits_no_go?.length || 0}
+                </div>
+              </div>
+              <div className="stat-box">
+                <div className="stat-label">Score moyen</div>
+                <div className="stat-value">
+                  {validationResults.produits_go && validationResults.produits_go.length > 0
+                    ? Math.round(validationResults.produits_go.reduce((sum, item) => sum + item.validation.score, 0) / validationResults.produits_go.length)
+                    : 0}
+                </div>
+              </div>
+            </div>
+
+            {/* Produits validés */}
+            {validationResults.produits_go && validationResults.produits_go.length > 0 && (
+              <div style={{ marginTop: '20px' }}>
+                <h3 style={{ color: '#10b981', marginBottom: '15px' }}>✅ Produits Validés (GO)</h3>
+                <div style={{ display: 'grid', gap: '15px' }}>
+                  {validationResults.produits_go.map((item, index) => (
+                    <div key={index} style={{
+                      padding: '15px',
+                      background: '#d1fae5',
+                      borderRadius: '8px',
+                      border: '2px solid #10b981'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                        <h4 style={{ margin: 0, color: '#065f46' }}>{item.produit.nom}</h4>
+                        <div style={{
+                          padding: '6px 12px',
+                          background: '#10b981',
+                          color: 'white',
+                          borderRadius: '20px',
+                          fontWeight: '700',
+                          fontSize: '0.9rem'
+                        }}>
+                          {item.validation.score}/100
+                        </div>
+                      </div>
+                      <p style={{ margin: '5px 0', color: '#065f46', fontWeight: '600' }}>
+                        {item.validation.recommendation}
+                      </p>
+                      {item.validation.details && item.validation.details.length > 0 && (
+                        <ul style={{ margin: '10px 0', paddingLeft: '20px', color: '#047857' }}>
+                          {item.validation.details.slice(0, 3).map((detail, idx) => (
+                            <li key={idx}>{detail}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Produits non validés */}
+            {validationResults.produits_no_go && validationResults.produits_no_go.length > 0 && (
+              <div style={{ marginTop: '20px' }}>
+                <h3 style={{ color: '#ef4444', marginBottom: '15px' }}>❌ Produits Non Validés (NO GO)</h3>
+                <div style={{ display: 'grid', gap: '15px' }}>
+                  {validationResults.produits_no_go.map((item, index) => (
+                    <div key={index} style={{
+                      padding: '15px',
+                      background: '#fee2e2',
+                      borderRadius: '8px',
+                      border: '2px solid #ef4444'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                        <h4 style={{ margin: 0, color: '#991b1b' }}>{item.produit.nom}</h4>
+                        <div style={{
+                          padding: '6px 12px',
+                          background: '#ef4444',
+                          color: 'white',
+                          borderRadius: '20px',
+                          fontWeight: '700',
+                          fontSize: '0.9rem'
+                        }}>
+                          {item.validation.score}/100
+                        </div>
+                      </div>
+                      <p style={{ margin: '5px 0', color: '#991b1b', fontWeight: '600' }}>
+                        {item.validation.recommendation}
+                      </p>
+                      {item.validation.details && item.validation.details.length > 0 && (
+                        <ul style={{ margin: '10px 0', paddingLeft: '20px', color: '#991b1b' }}>
+                          {item.validation.details.slice(0, 3).map((detail, idx) => (
+                            <li key={idx}>{detail}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

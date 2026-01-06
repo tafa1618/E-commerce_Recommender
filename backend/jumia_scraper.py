@@ -48,7 +48,7 @@ def scraper_jumia_best_sellers(categorie: Optional[str] = None, limit: int = 20)
         logger.info(f"Scraping Jumia: {url}")
         
         # Requête avec headers
-        response = requests.get(url, headers=HEADERS, timeout=10)
+        response = requests.get(url, headers=HEADERS, timeout=8)
         response.raise_for_status()
         
         # Parser le HTML
@@ -245,7 +245,7 @@ def scraper_jumia_recherche_simple(terme: str, limit: int = 20) -> List[Dict]:
             
             try:
                 # Requête avec headers
-                response = requests.get(url, headers=HEADERS, timeout=15)
+                response = requests.get(url, headers=HEADERS, timeout=10)
                 response.raise_for_status()
                 
                 # Parser le HTML
