@@ -339,42 +339,42 @@ export default function Categories() {
   }
 
   return (
-    <section className="py-12 md:py-16" style={{ backgroundColor: 'var(--color-bg-white)' }}>
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        {/* En-tête avec titre et filtres */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
-          <h2 className="text-2xl md:text-3xl font-bold mb-4 md:mb-0 uppercase" style={{ color: 'var(--color-text-on-light)' }}>
+    <section className="py-8 sm:py-12 md:py-16" style={{ backgroundColor: 'var(--color-bg-white)' }}>
+      <div className="mx-auto max-w-7xl px-3 sm:px-4 md:px-6 lg:px-8">
+        {/* En-tête avec titre et filtres - mobile-first */}
+        <div className="flex flex-col mb-6 sm:mb-8">
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold mb-4 uppercase" style={{ color: 'var(--color-text-on-light)' }}>
             {selectedCategory ? selectedCategory.toUpperCase() : 'EXPLORER NOS CATÉGORIES'}
           </h2>
           
-          {/* Onglets de filtres */}
-          <div className="flex gap-2">
+          {/* Onglets de filtres - scroll horizontal sur mobile */}
+          <div className="flex gap-2 overflow-x-auto pb-2 -mx-3 sm:mx-0 px-3 sm:px-0 scrollbar-hide">
             <button
               onClick={() => handleFilterChange('nouveautes')}
-              className={`px-4 py-2 text-sm font-semibold border-2 transition-colors ${
+              className={`px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold border-2 transition-colors whitespace-nowrap touch-manipulation ${
                 activeFilter === 'nouveautes'
                   ? 'bg-black text-white border-black'
-                  : 'bg-white text-black border-black hover:bg-gray-50'
+                  : 'bg-white text-black border-black active:bg-gray-50'
               }`}
             >
               Nouveautés
             </button>
             <button
               onClick={() => handleFilterChange('mieux-vendus')}
-              className={`px-4 py-2 text-sm font-semibold border-2 transition-colors ${
+              className={`px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold border-2 transition-colors whitespace-nowrap touch-manipulation ${
                 activeFilter === 'mieux-vendus'
                   ? 'bg-black text-white border-black'
-                  : 'bg-white text-black border-black hover:bg-gray-50'
+                  : 'bg-white text-black border-black active:bg-gray-50'
               }`}
             >
               Mieux Vendus
             </button>
             <button
               onClick={() => handleFilterChange('tendances')}
-              className={`px-4 py-2 text-sm font-semibold border-2 transition-colors ${
+              className={`px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold border-2 transition-colors whitespace-nowrap touch-manipulation ${
                 activeFilter === 'tendances'
                   ? 'bg-black text-white border-black'
-                  : 'bg-white text-black border-black hover:bg-gray-50'
+                  : 'bg-white text-black border-black active:bg-gray-50'
               }`}
             >
               Tendances
@@ -382,41 +382,42 @@ export default function Categories() {
           </div>
         </div>
 
-        <div className="grid lg:grid-cols-12 gap-6">
-          {/* Bannière promotionnelle à gauche */}
-          <div className="lg:col-span-3 relative overflow-hidden rounded-lg" style={{ backgroundColor: '#ef4444' }}>
-            <div className="p-6 md:p-8 text-white h-full flex flex-col justify-between">
-              <div>
-                <h3 className="text-sm md:text-base font-semibold mb-4 uppercase">
+        {/* Mobile-first: empiler verticalement sur mobile, grille sur desktop */}
+        <div className="flex flex-col lg:grid lg:grid-cols-12 gap-4 sm:gap-6">
+          {/* Bannière promotionnelle - en haut sur mobile, à gauche sur desktop */}
+          <div className="lg:col-span-3 relative overflow-hidden rounded-lg order-1 lg:order-1" style={{ backgroundColor: '#ef4444' }}>
+            <div className="p-4 sm:p-6 md:p-8 text-white h-full flex flex-row lg:flex-col justify-between items-center lg:items-start">
+              <div className="flex-1 lg:flex-none">
+                <h3 className="text-xs sm:text-sm md:text-base font-semibold mb-2 sm:mb-4 uppercase">
                   {selectedCategory || 'CATÉGORIE'}
                 </h3>
-                <div className="bg-white rounded-full w-24 h-24 md:w-32 md:h-32 flex items-center justify-center mb-4">
+                <div className="bg-white rounded-full w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 lg:w-32 lg:h-32 flex items-center justify-center mb-2 sm:mb-4">
                   <div className="text-center">
-                    <div className="text-3xl md:text-4xl font-bold" style={{ color: '#ef4444' }}>
+                    <div className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold" style={{ color: '#ef4444' }}>
                       {getDiscountPercentage()}%
                     </div>
                   </div>
                 </div>
-                <div className="text-xl md:text-2xl font-bold uppercase">
-                  DE<br />RÉDUCTION
+                <div className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold uppercase">
+                  DE<br className="hidden lg:block" /> RÉDUCTION
                 </div>
               </div>
-              <div className="mt-4 pt-4 border-t border-white/30">
-                <div className="text-sm opacity-90">
+              <div className="mt-0 lg:mt-4 pt-0 lg:pt-4 border-0 lg:border-t border-white/30 ml-4 lg:ml-0">
+                <div className="text-xs sm:text-sm opacity-90">
                   Profitez de nos meilleures offres
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Grille de produits au centre */}
-          <div className="lg:col-span-6">
+          {/* Grille de produits - au centre sur desktop, en haut sur mobile */}
+          <div className="lg:col-span-6 order-2 lg:order-2">
             {loading ? (
-              <div className="flex items-center justify-center h-64">
-                <div className="text-lg" style={{ color: 'var(--color-text-gray)' }}>Chargement...</div>
+              <div className="flex items-center justify-center h-48 sm:h-64">
+                <div className="text-base sm:text-lg" style={{ color: 'var(--color-text-gray)' }}>Chargement...</div>
               </div>
             ) : products.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                 {products.map((product) => (
                   <div
                     key={product.product_id}
@@ -447,24 +448,24 @@ export default function Categories() {
                       )}
                     </div>
 
-                    {/* Informations produit */}
-                    <div className="p-4">
+                    {/* Informations produit - optimisé mobile */}
+                    <div className="p-2 sm:p-3 md:p-4">
                       <Link href={`/products/${product.product_id}`}>
-                        <h3 className="text-sm font-semibold mb-2 line-clamp-2" style={{ color: 'var(--color-text-on-light)' }}>
+                        <h3 className="text-xs sm:text-sm font-semibold mb-1 sm:mb-2 line-clamp-2" style={{ color: 'var(--color-text-on-light)' }}>
                           {product.nom}
                         </h3>
                       </Link>
-                      <p className="text-base font-bold mb-3" style={{ color: 'var(--color-primary-dark)' }}>
+                      <p className="text-sm sm:text-base font-bold mb-2 sm:mb-3" style={{ color: 'var(--color-primary-dark)' }}>
                         {product.prix_texte || `${product.prix} CFA`}
                       </p>
                       <button
-                        className="w-full py-2 text-xs font-semibold uppercase border-2 border-black hover:bg-black hover:text-white transition-colors"
+                        className="w-full py-1.5 sm:py-2 text-xs font-semibold uppercase border-2 border-black active:bg-black active:text-white transition-colors touch-manipulation"
                         onClick={() => {
                           // TODO: Ajouter au panier
                           console.log('Ajouter au panier:', product.product_id)
                         }}
                       >
-                        Ajouter au panier
+                        Ajouter
                       </button>
                     </div>
                   </div>
@@ -481,27 +482,27 @@ export default function Categories() {
             )}
           </div>
 
-          {/* Sidebar de catégories à droite */}
-          <div className="lg:col-span-3">
-            <div className="bg-white border border-gray-200 rounded-lg p-6">
-              <h3 className="text-lg font-bold mb-4" style={{ color: '#ef4444' }}>
+          {/* Sidebar de catégories - en bas sur mobile, à droite sur desktop */}
+          <div className="lg:col-span-3 order-3 lg:order-3">
+            <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-5 md:p-6">
+              <h3 className="text-base sm:text-lg font-bold mb-3 sm:mb-4" style={{ color: '#ef4444' }}>
                 {selectedCategory || 'Catégories'}
               </h3>
               
-              {/* Liste des catégories principales */}
-              <div className="space-y-2 mb-6">
+              {/* Liste des catégories principales - scroll horizontal sur mobile si nécessaire */}
+              <div className="space-y-1.5 sm:space-y-2 mb-4 sm:mb-6 max-h-64 sm:max-h-none overflow-y-auto">
                 {categories.slice(0, 5).map((category) => (
                   <button
                     key={category.nom}
                     onClick={() => handleCategoryChange(category.nom)}
-                    className={`w-full text-left px-3 py-2 rounded transition-colors ${
+                    className={`w-full text-left px-3 py-2 sm:py-2.5 rounded transition-colors touch-manipulation ${
                       selectedCategory === category.nom
                         ? 'bg-gray-100 font-semibold'
-                        : 'hover:bg-gray-50'
+                        : 'active:bg-gray-50'
                     }`}
                     style={{ color: 'var(--color-text-on-light)' }}
                   >
-                    {category.nom}
+                    <span className="text-sm sm:text-base">{category.nom}</span>
                   </button>
                 ))}
               </div>
@@ -509,7 +510,7 @@ export default function Categories() {
               {/* Sous-catégories */}
               {subCategories.length > 0 && (
                 <div>
-                  <h4 className="text-sm font-semibold mb-3 uppercase" style={{ color: 'var(--color-text-gray)' }}>
+                  <h4 className="text-xs sm:text-sm font-semibold mb-2 sm:mb-3 uppercase" style={{ color: 'var(--color-text-gray)' }}>
                     Sous-catégories
                   </h4>
                   <div className="space-y-1">
@@ -517,7 +518,7 @@ export default function Categories() {
                       <Link
                         key={index}
                         href={`/products?categorie=${encodeURIComponent(subCat)}`}
-                        className="block text-sm px-3 py-1 hover:bg-gray-50 rounded transition-colors"
+                        className="block text-xs sm:text-sm px-3 py-1.5 active:bg-gray-50 rounded transition-colors touch-manipulation"
                         style={{ color: 'var(--color-text-on-light)' }}
                       >
                         {subCat}

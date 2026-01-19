@@ -39,31 +39,31 @@ export default function Products({ products = [] }: ProductsProps) {
   ]
 
   return (
-    <section className="py-20 md:py-32 bg-white">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="mb-16 flex items-center justify-between">
+    <section className="py-8 sm:py-12 md:py-20 lg:py-32 bg-white">
+      <div className="mx-auto max-w-7xl px-3 sm:px-4 md:px-6 lg:px-8">
+        <div className="mb-8 sm:mb-12 md:mb-16 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h2 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-gray-900">
               Produits populaires
             </h2>
-            <p className="mt-4 text-lg text-gray-600">
+            <p className="mt-2 sm:mt-4 text-sm sm:text-base md:text-lg text-gray-600">
               Les articles les plus appréciés par nos clients
             </p>
           </div>
           <Link
             href="/products"
-            className="hidden sm:block rounded-lg bg-primary-600 px-6 py-3 text-sm font-semibold text-white hover:bg-primary-700 transition-colors"
+            className="hidden sm:block rounded-lg bg-primary-600 px-4 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm font-semibold text-white hover:bg-primary-700 active:bg-primary-800 transition-colors touch-manipulation"
           >
             Voir tout
           </Link>
         </div>
 
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:gap-6 grid-cols-2 sm:grid-cols-2 lg:grid-cols-4">
           {displayProducts.map((product: any) => (
             <Link
               key={product.product_id || product.id}
               href={`/products/${product.product_id || product.id}`}
-              className="group relative overflow-hidden rounded-xl bg-white border border-gray-200 p-6 transition-all hover:shadow-lg hover:-translate-y-1"
+              className="group relative overflow-hidden rounded-lg sm:rounded-xl bg-white border border-gray-200 p-3 sm:p-4 md:p-6 transition-all active:shadow-lg active:-translate-y-0.5 touch-manipulation"
             >
               {product.image && product.image.startsWith('http') ? (
                 <div className="aspect-square mb-4 overflow-hidden rounded-lg bg-gray-100">

@@ -8,14 +8,14 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-50 shadow-lg w-full" style={{ backgroundColor: 'var(--color-primary-dark)' }}>
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 items-center justify-between">
-          {/* Logo */}
+      <div className="mx-auto max-w-7xl px-3 sm:px-4 md:px-6 lg:px-8">
+        <div className="flex h-14 sm:h-16 items-center justify-between">
+          {/* Logo - plus petit sur mobile */}
           <Link href="/" className="flex items-center space-x-2">
             <img 
               src="/logo-Tafa.png" 
               alt="Tafa Business" 
-              className="h-10 w-auto"
+              className="h-8 sm:h-10 w-auto"
             />
           </Link>
 
@@ -54,9 +54,9 @@ export default function Header() {
             </Link>
           </div>
 
-          {/* Mobile menu button */}
+          {/* Mobile menu button - plus grand pour faciliter le tap */}
           <button
-            className="md:hidden p-2"
+            className="md:hidden p-2.5 touch-manipulation"
             style={{ color: 'var(--color-text-on-dark)' }}
             onClick={() => setIsMenuOpen(!isMenuOpen)}
             aria-label="Toggle menu"
@@ -66,7 +66,7 @@ export default function Header() {
               fill="none"
               strokeLinecap="round"
               strokeLinejoin="round"
-              strokeWidth="2"
+              strokeWidth="2.5"
               viewBox="0 0 24 24"
               stroke="currentColor"
             >
@@ -79,34 +79,56 @@ export default function Header() {
           </button>
         </div>
 
-        {/* Mobile Navigation */}
+        {/* Mobile Navigation - amélioré pour mobile */}
         {isMenuOpen && (
-          <nav className="md:hidden py-4 space-y-4">
-            <Link href="/" className="block transition-colors nav-link">
+          <nav className="md:hidden py-4 space-y-3 border-t border-gray-700/50">
+            <Link 
+              href="/" 
+              className="block py-3 px-4 transition-colors nav-link rounded-lg hover:bg-white/10 active:bg-white/20 touch-manipulation"
+              onClick={() => setIsMenuOpen(false)}
+            >
               Accueil
             </Link>
-            <Link href="/categories" className="block transition-colors nav-link">
+            <Link 
+              href="/categories" 
+              className="block py-3 px-4 transition-colors nav-link rounded-lg hover:bg-white/10 active:bg-white/20 touch-manipulation"
+              onClick={() => setIsMenuOpen(false)}
+            >
               Catégories
             </Link>
-            <Link href="/products" className="block transition-colors nav-link">
+            <Link 
+              href="/products" 
+              className="block py-3 px-4 transition-colors nav-link rounded-lg hover:bg-white/10 active:bg-white/20 touch-manipulation"
+              onClick={() => setIsMenuOpen(false)}
+            >
               Produits
             </Link>
-            <Link href="/about" className="block transition-colors nav-link">
+            <Link 
+              href="/about" 
+              className="block py-3 px-4 transition-colors nav-link rounded-lg hover:bg-white/10 active:bg-white/20 touch-manipulation"
+              onClick={() => setIsMenuOpen(false)}
+            >
               À propos
             </Link>
-            <Link href="/contact" className="block transition-colors nav-link">
+            <Link 
+              href="/contact" 
+              className="block py-3 px-4 transition-colors nav-link rounded-lg hover:bg-white/10 active:bg-white/20 touch-manipulation"
+              onClick={() => setIsMenuOpen(false)}
+            >
               Contact
             </Link>
-            <div className="pt-4 space-y-2 border-t border-gray-700">
+            <div className="pt-4 space-y-3 border-t border-gray-700/50">
               <Link
                 href="/login"
-                className="block transition-colors nav-link"
+                className="block py-3 px-4 transition-colors nav-link rounded-lg hover:bg-white/10 active:bg-white/20 touch-manipulation text-center"
+                onClick={() => setIsMenuOpen(false)}
               >
                 Connexion
               </Link>
               <Link
                 href="/register"
-                className="block rounded-lg px-4 py-2 font-semibold text-center transition-colors btn-yellow"
+                className="block rounded-lg px-4 py-3 font-semibold text-center transition-colors btn-yellow touch-manipulation active:opacity-80"
+                onClick={() => setIsMenuOpen(false)}
               >
                 Inscription
               </Link>

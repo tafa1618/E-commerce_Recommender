@@ -73,12 +73,13 @@ export default function ProductDetail({ product }: { product: Product }) {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Section principale produit */}
-      <section className="py-8 md:py-12">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="grid lg:grid-cols-2 gap-8 md:gap-12">
-            {/* Image produit */}
-            <div className="relative">
+      {/* Section principale produit - mobile-first */}
+      <section className="py-4 sm:py-6 md:py-8 lg:py-12">
+        <div className="mx-auto max-w-7xl px-3 sm:px-4 md:px-6 lg:px-8">
+          {/* Mobile-first: empiler verticalement sur mobile */}
+          <div className="flex flex-col lg:grid lg:grid-cols-2 gap-4 sm:gap-6 md:gap-8 lg:gap-12">
+            {/* Image produit - en haut sur mobile */}
+            <div className="relative order-1">
               <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
                 {product.image ? (
                   <Image
@@ -95,64 +96,66 @@ export default function ProductDetail({ product }: { product: Product }) {
                 )}
               </div>
               
-              {/* Badge validation */}
+              {/* Badge validation - plus petit sur mobile */}
               {product.validation_score && product.validation_score > 0 && (
-                <div className="absolute top-4 left-4 bg-green-500 text-white px-3 py-1 rounded-full text-sm font-semibold flex items-center gap-1">
-                  <Check className="w-4 h-4" />
-                  Validé {product.validation_score}/100
+                <div className="absolute top-2 left-2 sm:top-4 sm:left-4 bg-green-500 text-white px-2 py-1 sm:px-3 sm:py-1 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1">
+                  <Check className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span className="hidden sm:inline">Validé </span>{product.validation_score}/100
                 </div>
               )}
             </div>
 
-            {/* Informations produit */}
-            <div className="flex flex-col justify-center">
+            {/* Informations produit - en bas sur mobile */}
+            <div className="flex flex-col justify-center order-2">
               {/* Catégorie */}
-              <div className="text-sm font-medium mb-2" style={{ color: 'var(--color-primary-dark)' }}>
+              <div className="text-xs sm:text-sm font-medium mb-1 sm:mb-2" style={{ color: 'var(--color-primary-dark)' }}>
                 {product.categorie}
               </div>
 
-              {/* Titre */}
-              <h1 className="text-3xl md:text-4xl font-bold mb-4" style={{ color: 'var(--color-text-on-light)' }}>
+              {/* Titre - taille réduite sur mobile */}
+              <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold mb-3 sm:mb-4" style={{ color: 'var(--color-text-on-light)' }}>
                 {product.nom}
               </h1>
 
-              {/* Prix */}
-              <div className="mb-6">
-                <div className="text-4xl font-bold mb-2" style={{ color: 'var(--color-primary-dark)' }}>
+              {/* Prix - taille réduite sur mobile */}
+              <div className="mb-4 sm:mb-6">
+                <div className="text-2xl sm:text-3xl md:text-4xl font-bold mb-1 sm:mb-2" style={{ color: 'var(--color-primary-dark)' }}>
                   {product.prix_texte || `${product.prix.toLocaleString()} CFA`}
                 </div>
                 {product.validation_score && product.validation_score >= 70 && (
-                  <div className="text-sm" style={{ color: 'var(--color-text-gray)' }}>
+                  <div className="text-xs sm:text-sm" style={{ color: 'var(--color-text-gray)' }}>
                     ✅ Produit validé et recommandé
                   </div>
                 )}
               </div>
 
-              {/* Actions */}
-              <div className="flex flex-col sm:flex-row gap-4 mb-8">
+              {/* Actions - empilées sur mobile */}
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-6 sm:mb-8">
                 <button
                   onClick={handleAddToCart}
-                  className="flex-1 flex items-center justify-center gap-2 px-8 py-4 bg-black text-white font-semibold rounded-lg hover:bg-gray-800 transition-colors"
+                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 sm:px-8 sm:py-4 bg-black text-white text-sm sm:text-base font-semibold rounded-lg active:bg-gray-800 transition-colors touch-manipulation"
                 >
-                  <ShoppingCart className="w-5 h-5" />
+                  <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" />
                   Ajouter au panier
                 </button>
-                <button
-                  onClick={() => setIsFavorite(!isFavorite)}
-                  className={`px-6 py-4 border-2 rounded-lg transition-colors ${
-                    isFavorite
-                      ? 'bg-red-50 border-red-500 text-red-600'
-                      : 'border-gray-300 hover:border-gray-400'
-                  }`}
-                >
-                  <Heart className={`w-5 h-5 ${isFavorite ? 'fill-current' : ''}`} />
-                </button>
-                <button
-                  onClick={handleShare}
-                  className="px-6 py-4 border-2 border-gray-300 rounded-lg hover:border-gray-400 transition-colors"
-                >
-                  <Share2 className="w-5 h-5" />
-                </button>
+                <div className="flex gap-3 sm:gap-4">
+                  <button
+                    onClick={() => setIsFavorite(!isFavorite)}
+                    className={`flex-1 sm:flex-none px-4 py-3 sm:px-6 sm:py-4 border-2 rounded-lg transition-colors touch-manipulation ${
+                      isFavorite
+                        ? 'bg-red-50 border-red-500 text-red-600'
+                        : 'border-gray-300 active:border-gray-400'
+                    }`}
+                  >
+                    <Heart className={`w-5 h-5 mx-auto ${isFavorite ? 'fill-current' : ''}`} />
+                  </button>
+                  <button
+                    onClick={handleShare}
+                    className="flex-1 sm:flex-none px-4 py-3 sm:px-6 sm:py-4 border-2 border-gray-300 rounded-lg active:border-gray-400 transition-colors touch-manipulation"
+                  >
+                    <Share2 className="w-5 h-5 mx-auto" />
+                  </button>
+                </div>
               </div>
 
               {/* Points clés */}
@@ -184,53 +187,62 @@ export default function ProductDetail({ product }: { product: Product }) {
         </div>
       </section>
 
-      {/* Section description */}
-      <section className="py-12 bg-gray-50">
-        <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-          <h2 className="text-2xl md:text-3xl font-bold mb-6" style={{ color: 'var(--color-text-on-light)' }}>
+      {/* Section description - mobile-first avec scroll */}
+      <section className="py-6 sm:py-8 md:py-12 bg-gray-50">
+        <div className="mx-auto max-w-4xl px-3 sm:px-4 md:px-6 lg:px-8">
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold mb-4 sm:mb-6" style={{ color: 'var(--color-text-on-light)' }}>
             Description du produit
           </h2>
           
+          {/* Conteneur scrollable avec bordure */}
           <div 
-            className="prose prose-lg max-w-none"
-            style={{ 
-              color: 'var(--color-text-on-light)',
-              lineHeight: '1.8',
-              fontSize: '1.1rem'
+            className="bg-white rounded-lg border-2 border-gray-200 shadow-sm p-4 sm:p-6 md:p-8 scrollable-content"
+            style={{
+              maxHeight: '400px',
+              overflowY: 'auto',
+              overflowX: 'hidden'
             }}
           >
-            {product.description_seo ? (
-              <div 
-                dangerouslySetInnerHTML={{ __html: product.description_seo }}
-                className="text-gray-700 leading-relaxed"
-                style={{
-                  fontSize: '1.1rem',
-                  lineHeight: '1.8',
-                  color: '#374151'
-                }}
-              />
-            ) : (
-              <div className="space-y-4" style={{ color: '#374151', fontSize: '1.1rem', lineHeight: '1.8' }}>
-                <p>
-                  Découvrez ce produit exceptionnel qui allie qualité et performance. 
-                  Conçu pour répondre à vos besoins quotidiens, ce produit vous accompagnera 
-                  dans toutes vos activités.
-                </p>
-                <p>
-                  Caractéristiques principales :
-                </p>
-                <ul className="list-disc list-inside space-y-2 ml-4">
-                  <li>Qualité premium garantie</li>
-                  <li>Design moderne et élégant</li>
-                  <li>Facile à utiliser et entretenir</li>
-                  <li>Durabilité exceptionnelle</li>
-                </ul>
-                <p>
-                  Commandez dès maintenant et profitez de notre service de livraison rapide 
-                  partout au Sénégal. Satisfaction garantie ou remboursé !
-                </p>
-              </div>
-            )}
+            <div 
+              className="prose prose-sm sm:prose-base md:prose-lg max-w-none"
+              style={{ 
+                color: 'var(--color-text-on-light)',
+                lineHeight: '1.8'
+              }}
+            >
+              {product.description_seo ? (
+                <div 
+                  dangerouslySetInnerHTML={{ __html: product.description_seo }}
+                  className="text-gray-700 leading-relaxed"
+                  style={{
+                    fontSize: '0.95rem',
+                    lineHeight: '1.8',
+                    color: '#374151'
+                  }}
+                />
+              ) : (
+                <div className="space-y-4" style={{ color: '#374151', fontSize: '0.95rem', lineHeight: '1.8' }}>
+                  <p>
+                    Découvrez ce produit exceptionnel qui allie qualité et performance. 
+                    Conçu pour répondre à vos besoins quotidiens, ce produit vous accompagnera 
+                    dans toutes vos activités.
+                  </p>
+                  <p>
+                    Caractéristiques principales :
+                  </p>
+                  <ul className="list-disc list-inside space-y-2 ml-4">
+                    <li>Qualité premium garantie</li>
+                    <li>Design moderne et élégant</li>
+                    <li>Facile à utiliser et entretenir</li>
+                    <li>Durabilité exceptionnelle</li>
+                  </ul>
+                  <p>
+                    Commandez dès maintenant et profitez de notre service de livraison rapide 
+                    partout au Sénégal. Satisfaction garantie ou remboursé !
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Mots-clés */}
@@ -255,15 +267,15 @@ export default function ProductDetail({ product }: { product: Product }) {
         </div>
       </section>
 
-      {/* Section cross-selling */}
+      {/* Section cross-selling - mobile-first */}
       {relatedProducts.length > 0 && (
-        <section className="py-12 bg-white">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <h2 className="text-2xl md:text-3xl font-bold mb-8 text-center" style={{ color: 'var(--color-text-on-light)' }}>
+        <section className="py-6 sm:py-8 md:py-12 bg-white">
+          <div className="mx-auto max-w-7xl px-3 sm:px-4 md:px-6 lg:px-8">
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold mb-4 sm:mb-6 md:mb-8 text-center" style={{ color: 'var(--color-text-on-light)' }}>
               Produits similaires
             </h2>
             
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
               {relatedProducts.map((relatedProduct) => (
                 <Link
                   key={relatedProduct.product_id}

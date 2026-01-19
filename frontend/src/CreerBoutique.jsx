@@ -105,12 +105,12 @@ function CreerBoutique() {
     window.addEventListener('storage', handleStorageChange)
     window.addEventListener('boutique-produits-updated', handleBoutiqueUpdate)
     
-    // Vérifier aussi périodiquement (toutes les 2 secondes) si on est sur la page
+    // Vérifier aussi périodiquement (toutes les 10 secondes) si on est sur la page (réduit la charge)
     const intervalId = setInterval(() => {
       if (!document.hidden) {
         chargerProduits()
       }
-    }, 2000)
+    }, 10000) // Réduit de 2s à 10s pour améliorer les performances
 
     // Recharger aussi quand on revient sur la page (focus)
     const handleFocus = () => {
@@ -210,13 +210,20 @@ function CreerBoutique() {
         return
       }
       
-      // Créer une copie propre du produit
+      // Créer une copie propre du produit (limiter la taille des images base64)
+      let imageUrl = produit.image || ''
+      // Si l'image est en base64 et trop volumineuse, la retirer pour éviter de saturer localStorage
+      if (imageUrl.startsWith('data:image/') && imageUrl.length > 100000) {
+        console.warn('Image base64 trop volumineuse, suppression pour économiser localStorage')
+        imageUrl = ''
+      }
+      
       const produitAvecSource = {
         nom: produit.nom || 'Produit sans nom',
         prix: produit.prix || 0,
         prix_texte: produit.prix_texte || `${produit.prix || 0} FCFA`,
         lien: produit.lien || '',
-        image: produit.image || '',
+        image: imageUrl,
         marque: produit.marque || '',
         categorie: produit.categorie || '',
         note: produit.note || 'N/A',
@@ -229,12 +236,48 @@ function CreerBoutique() {
       produitsExistants.push(produitAvecSource)
       
       try {
-        localStorage.setItem('boutique_produits', JSON.stringify(produitsExistants))
+        // Vérifier la taille avant de sauvegarder
+        const dataToSave = JSON.stringify(produitsExistants)
+        if (dataToSave.length > 5000000) { // ~5MB (limite approximative de localStorage)
+          console.warn('⚠️ Données trop volumineuses, suppression des images base64...')
+          // Retirer les images base64 pour réduire la taille
+          const produitsSansImages = produitsExistants.map(p => {
+            if (p.image && p.image.startsWith('data:image/')) {
+              const { image, ...rest } = p
+              return rest
+            }
+            return p
+          })
+          localStorage.setItem('boutique_produits', JSON.stringify(produitsSansImages))
+          // Mettre à jour le produit ajouté sans l'image
+          produitAvecSource.image = ''
+        } else {
+          localStorage.setItem('boutique_produits', dataToSave)
+        }
         console.log('✅ Produit sauvegardé dans localStorage')
       } catch (e) {
         console.error('❌ Erreur sauvegarde localStorage:', e)
-        setError(`Erreur sauvegarde: ${e.message}`)
-        return
+        if (e.name === 'QuotaExceededError') {
+          // Essayer de sauvegarder sans les images base64
+          try {
+            const produitsSansImages = produitsExistants.map(p => {
+              if (p.image && p.image.startsWith('data:image/')) {
+                const { image, ...rest } = p
+                return rest
+              }
+              return p
+            })
+            localStorage.setItem('boutique_produits', JSON.stringify(produitsSansImages))
+            produitAvecSource.image = ''
+            setError('⚠️ localStorage plein ! Les images base64 ont été supprimées pour économiser l\'espace.')
+          } catch (e2) {
+            setError(`❌ Erreur critique: localStorage plein. Veuillez supprimer des produits ou vider le cache.`)
+            return
+          }
+        } else {
+          setError(`Erreur sauvegarde: ${e.message}`)
+          return
+        }
       }
       
       // Mettre à jour l'état local IMMÉDIATEMENT (nouvelle référence pour forcer le re-render)
@@ -276,18 +319,86 @@ function CreerBoutique() {
     }
   }
 
-  // Sauvegarder dans localStorage quand les produits changent
+  // Sauvegarder dans localStorage quand les produits changent (éviter les boucles infinies)
   useEffect(() => {
-    if (produits.length > 0) {
-      localStorage.setItem('boutique_produits', JSON.stringify(produits))
-    } else {
-      localStorage.removeItem('boutique_produits')
+    // Ne sauvegarder que si les produits ont vraiment changé (pas lors du chargement initial)
+    const stored = localStorage.getItem('boutique_produits')
+    const storedProducts = stored ? JSON.parse(stored) : []
+    
+    // Comparer les longueurs et les IDs pour éviter les sauvegardes inutiles
+    if (produits.length !== storedProducts.length || 
+        JSON.stringify(produits.map(p => p.lien || p.nom)) !== JSON.stringify(storedProducts.map(p => p.lien || p.nom))) {
+      try {
+        if (produits.length > 0) {
+          // Limiter la taille des données (ne pas stocker les images base64 si trop volumineuses)
+          const produitsToSave = produits.map(p => {
+            const produitCopy = { ...p }
+            // Si l'image est en base64 et trop grande, la retirer
+            if (produitCopy.image && produitCopy.image.startsWith('data:image/')) {
+              if (produitCopy.image.length > 100000) { // ~100KB
+                console.warn('Image base64 trop volumineuse, suppression pour économiser localStorage')
+                produitCopy.image = '' // Retirer l'image trop volumineuse
+              }
+            }
+            return produitCopy
+          })
+          localStorage.setItem('boutique_produits', JSON.stringify(produitsToSave))
+        } else {
+          localStorage.removeItem('boutique_produits')
+        }
+      } catch (e) {
+        if (e.name === 'QuotaExceededError') {
+          console.error('❌ localStorage plein ! Suppression des images base64...')
+          // Essayer de sauvegarder sans les images base64
+          const produitsSansImages = produits.map(p => {
+            const { image, ...rest } = p
+            return image && image.startsWith('data:image/') ? rest : p
+          })
+          try {
+            localStorage.setItem('boutique_produits', JSON.stringify(produitsSansImages))
+          } catch (e2) {
+            console.error('❌ Impossible de sauvegarder même sans images:', e2)
+            setError('⚠️ localStorage plein ! Veuillez supprimer des produits ou vider le cache du navigateur.')
+          }
+        } else {
+          console.error('❌ Erreur sauvegarde localStorage:', e)
+        }
+      }
     }
   }, [produits])
 
   const supprimerProduit = (index) => {
     const nouveauxProduits = produits.filter((_, i) => i !== index)
     setProduits(nouveauxProduits)
+  }
+
+  // Fonction pour valider la niche (analyse de cohérence)
+  const validerNiche = async () => {
+    if (produits.length < 3) {
+      setError('Il faut au moins 3 produits pour valider la niche')
+      return
+    }
+
+    setValidatingNiche(true)
+    setError(null)
+
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/api/boutique/valider-niche`,
+        { produits }
+      )
+
+      if (response.data.success && response.data.analyse) {
+        setNicheAnalysis(response.data.analyse)
+      } else {
+        setError('Erreur lors de la validation de la niche')
+      }
+    } catch (err) {
+      console.error('Erreur validation niche:', err)
+      setError(err.response?.data?.detail || 'Erreur lors de la validation de la niche')
+    } finally {
+      setValidatingNiche(false)
+    }
   }
 
   const viderPanier = () => {

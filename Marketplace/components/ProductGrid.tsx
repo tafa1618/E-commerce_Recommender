@@ -47,12 +47,12 @@ export default function ProductGrid({ products }: ProductGridProps) {
   }
 
   return (
-    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
       {products.map((product) => (
         <Link
           key={product.product_id}
           href={`/products/${product.product_id}`}
-          className="group relative overflow-hidden rounded-xl bg-white border border-gray-200 p-6 transition-all hover:shadow-lg hover:-translate-y-1"
+          className="group relative overflow-hidden rounded-lg sm:rounded-xl bg-white border border-gray-200 p-4 sm:p-5 md:p-6 transition-all active:shadow-lg active:-translate-y-0.5 touch-manipulation"
           onClick={() => {
             // Enregistrer le clic
             fetch('/api/products/track', {
@@ -99,7 +99,7 @@ export default function ProductGrid({ products }: ProductGridProps) {
           )}
 
           {/* Nom du produit */}
-          <h3 className="text-lg font-semibold text-gray-900 group-hover:text-primary-600 transition-colors mb-2">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900 group-hover:text-primary-600 transition-colors mb-2 line-clamp-2">
             {product.nom}
           </h3>
 
@@ -109,8 +109,8 @@ export default function ProductGrid({ products }: ProductGridProps) {
           )}
 
           {/* Prix */}
-          <div className="mt-4 flex items-center justify-between">
-            <div className="text-xl font-bold text-gray-900">
+          <div className="mt-3 sm:mt-4 flex items-center justify-between">
+            <div className="text-lg sm:text-xl font-bold text-gray-900">
               {product.prix_texte || `${product.prix} FCFA`}
             </div>
             {product.remise && (
