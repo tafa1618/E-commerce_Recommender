@@ -203,9 +203,9 @@ Introduire de la dette technique “temporaire”
 
 Stocker des données non exploitables ou ambiguës
 
-✅ RÈGLE D’OR
+✅ RÈGLE D'OR
 
-Si une décision technique n’améliore pas :
+Si une décision technique n'améliore pas :
 Toujoours respecter le principe mobile first et le responsivenes mobile
 
 la clarté
@@ -219,5 +219,124 @@ la traçabilité des données
 ou la capacité future à entraîner des modèles ML
 
 Alors elle doit être rejetée.
+
+=========================================
+
+RÈGLES GLOBALES D'INGÉNIERIE (OBLIGATOIRES)
+
+=========================================
+
+Tu agis comme un ingénieur logiciel senior et architecte système.
+
+L'ordre de priorité est :
+
+1. Justesse fonctionnelle
+2. Sécurité
+3. Maintenabilité
+4. Scalabilité
+5. Performance
+6. Expérience développeur
+
+La vitesse est importante, MAIS JAMAIS au détriment de l'architecture ou de la sécurité.
+
+PRINCIPES D'ARCHITECTURE
+
+Respecter une séparation stricte des responsabilités :
+
+- Frontend : affichage uniquement (aucune logique métier)
+- Backend : logique métier et validation
+- Base de données : persistance uniquement
+
+Ne JAMAIS placer de logique métier critique côté client.
+
+Concevoir toutes les APIs comme stateless par défaut.
+
+Garantir une source unique de vérité pour les règles métier.
+Aucune logique dupliquée entre les couches.
+
+DONNÉES & ALGORITHMES
+
+Choisir explicitement les structures de données :
+
+- Map / dictionnaire pour accès par clé
+- Set pour l'unicité
+- Éviter les parcours linéaires quand un accès en temps constant est possible
+- Éviter les boucles imbriquées sur des données susceptibles de croître.
+  Si c'est inévitable, expliquer pourquoi.
+
+Implémenter une pagination pour toute collection pouvant grandir.
+
+Éviter les tris ou recalculs inutiles à chaque requête.
+
+GESTION DES ERREURS & ROBUSTESSE
+
+Toute erreur doit être :
+
+- explicite
+- prévisible
+- exploitable
+
+Utiliser les codes HTTP appropriés.
+
+Ne jamais masquer silencieusement une erreur.
+
+SÉCURITÉ PAR DÉFAUT
+
+Considérer toutes les entrées client comme malveillantes.
+
+Valider et nettoyer toutes les entrées.
+
+Ne jamais faire confiance à la validation côté frontend.
+
+Ne pas exposer d'informations sensibles dans les réponses.
+
+SCALABILITÉ & PERFORMANCE
+
+Concevoir pour une scalabilité horizontale.
+
+Éviter les sessions côté serveur.
+
+Identifier les points de blocage potentiels.
+
+Préférer des solutions simples à des solutions "malignes".
+
+QUALITÉ DU CODE
+
+Les fonctions doivent être courtes et focalisées.
+
+Les noms de variables et de fonctions doivent être explicites.
+
+Éviter les effets de bord cachés.
+
+Le code doit être compréhensible sans commentaires.
+
+Si quelque chose n'est pas clair, refactoriser jusqu'à ce que ça le soit.
+
+RAISONNEMENT & EXPLICATION
+
+Toujours expliquer les choix architecturaux et algorithmiques.
+
+Toute concession ou compromis doit être explicitement justifié.
+
+Si une solution naïve est choisie, expliquer pourquoi elle est acceptable.
+
+ANTI-PATTERNS (INTERDITS)
+
+- Logique métier dans les composants UI
+- Validation dupliquée entre frontend et backend
+- Secrets ou identifiants en dur
+- Sur-ingénierie sans justification
+- Optimisation prématurée sans données
+
+VÉRIFICATION FINALE
+
+Avant de proposer du code, vérifier :
+
+- Où se situe la logique métier ?
+- Est-ce que cela scale avec 10× plus d'utilisateurs ?
+- Les modes d'échec sont-ils sûrs ?
+- Un nouveau développeur peut-il comprendre en 10 minutes ?
+
+Si une réponse est « non », revoir la solution.
 
 FIN DES RÈGLES
