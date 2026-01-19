@@ -218,23 +218,56 @@ def publier_produit(produit: Dict, description_seo: Optional[Dict] = None,
         conn.close()
 
 
-def get_produits_marketplace(status: str = 'active', limit: Optional[int] = None, categorie: Optional[str] = None) -> List[Dict]:
-    """Récupère les produits du marketplace"""
+def get_produits_marketplace(
+    status: str = 'active', 
+    limit: Optional[int] = None, 
+    offset: Optional[int] = None,
+    categorie: Optional[str] = None,
+    search: Optional[str] = None
+) -> Dict:
+    """
+    Récupère les produits du marketplace avec pagination et recherche
+    
+    Returns:
+        Dict avec 'produits' (List[Dict]) et 'total' (int)
+    """
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
     try:
+        # Requête pour compter le total (sans pagination)
+        count_query = "SELECT COUNT(*) FROM produits_marketplace WHERE status = ?"
+        count_params = [status]
+        
+        # Requête pour récupérer les produits
         query = "SELECT * FROM produits_marketplace WHERE status = ?"
         params = [status]
         
         if categorie:
             query += " AND categorie = ?"
+            count_query += " AND categorie = ?"
             params.append(categorie)
+            count_params.append(categorie)
         
-        query += " ORDER BY published_at DESC"
+        if search:
+            search_pattern = f"%{search}%"
+            query += " AND (nom LIKE ? OR description_seo LIKE ? OR meta_description LIKE ? OR mots_cles LIKE ?)"
+            count_query += " AND (nom LIKE ? OR description_seo LIKE ? OR meta_description LIKE ? OR mots_cles LIKE ?)"
+            params.extend([search_pattern, search_pattern, search_pattern, search_pattern])
+            count_params.extend([search_pattern, search_pattern, search_pattern, search_pattern])
         
+        # Compter le total
+        cursor.execute(count_query, tuple(count_params))
+        total = cursor.fetchone()[0]
+        
+        # Requête principale avec tri
+        query += " ORDER BY published_at DESC, created_at DESC"
+        
+        # Pagination
         if limit:
             query += f" LIMIT {limit}"
+            if offset is not None:
+                query += f" OFFSET {offset}"
         
         cursor.execute(query, tuple(params))
         rows = cursor.fetchall()
@@ -258,11 +291,15 @@ def get_produits_marketplace(status: str = 'active', limit: Optional[int] = None
                     produit['events'] = []
             produits.append(produit)
         
-        return produits
+        return {
+            'produits': produits,
+            'total': total,
+            'count': len(produits)
+        }
         
     except Exception as e:
         print(f"❌ Erreur récupération produits: {e}")
-        return []
+        return {'produits': [], 'total': 0, 'count': 0}
     finally:
         conn.close()
 

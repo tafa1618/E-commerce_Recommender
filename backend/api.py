@@ -1213,25 +1213,47 @@ async def get_products_by_category(categorie: str, limit: Optional[int] = 4):
 async def get_products_marketplace_api(
     status: Optional[str] = 'active',
     limit: Optional[int] = None,
-    categorie: Optional[str] = None
+    offset: Optional[int] = None,
+    categorie: Optional[str] = None,
+    search: Optional[str] = None
 ):
     """
-    Récupère les produits du marketplace
+    Récupère les produits du marketplace avec pagination et recherche
     
     Args:
         status: Statut des produits (active, draft, archived)
         limit: Nombre de produits à retourner
+        offset: Nombre de produits à ignorer (pour pagination)
         categorie: Filtrer par catégorie
+        search: Recherche textuelle dans nom, description, mots-clés
         
     Returns:
-        Liste des produits
+        Dict avec produits, total et count
     """
     try:
-        produits = get_produits_marketplace(status=status, limit=limit, categorie=categorie)
+        result = get_produits_marketplace(
+            status=status, 
+            limit=limit, 
+            offset=offset,
+            categorie=categorie,
+            search=search
+        )
+        
+        # Si l'ancienne version retourne une liste, adapter
+        if isinstance(result, list):
+            return {
+                "success": True,
+                "produits": result,
+                "count": len(result),
+                "total": len(result)
+            }
+        
+        # Nouvelle version avec total
         return {
             "success": True,
-            "produits": produits,
-            "count": len(produits)
+            "produits": result.get('produits', []),
+            "count": result.get('count', 0),
+            "total": result.get('total', 0)
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération: {str(e)}")

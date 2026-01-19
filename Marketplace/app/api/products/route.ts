@@ -11,15 +11,23 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
     const status = searchParams.get('status') || 'active'
     const limit = searchParams.get('limit')
+    const offset = searchParams.get('offset')
     const categorie = searchParams.get('categorie')
+    const search = searchParams.get('search')
 
     const url = new URL(`${API_BASE_URL}/api/marketplace/products`)
     url.searchParams.set('status', status)
     if (limit) {
       url.searchParams.set('limit', limit)
     }
+    if (offset) {
+      url.searchParams.set('offset', offset)
+    }
     if (categorie) {
       url.searchParams.set('categorie', categorie)
+    }
+    if (search) {
+      url.searchParams.set('search', search)
     }
 
     const response = await fetch(url.toString(), {

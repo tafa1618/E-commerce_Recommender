@@ -71,6 +71,192 @@ respiration visuelle
 
 structure claire
 
+=========================================
+
+RÈGLES DE DESIGN ACTUELLES (PATTERN ÉTABLI)
+
+=========================================
+
+PRINCIPE FONDAMENTAL : MOBILE-FIRST
+
+Toujours concevoir d'abord pour mobile, puis adapter pour desktop.
+
+Ordre de développement : Mobile → Tablet → Desktop
+
+Breakpoints Tailwind utilisés :
+
+- Mobile (par défaut) : < 640px
+- sm : >= 640px (petits écrans)
+- md : >= 768px (tablettes)
+- lg : >= 1024px (desktop)
+- xl : >= 1280px (grand desktop)
+
+PALETTE DE COULEURS (CSS Variables)
+
+Couleurs principales (bleu foncé) :
+
+- --color-primary-dark: #172554 (headers/footers)
+- --color-primary-medium: #1e40af
+- --color-primary-light: #3b82f6
+
+Couleurs d'accent (jaune) :
+
+- --color-accent-yellow: #facc15 (boutons CTA)
+- --color-accent-yellow-dark: #eab308 (hover states)
+
+Couleurs de texte :
+
+- --color-text-on-dark: #ffffff (texte blanc sur fond sombre)
+- --color-text-on-light: #111827 (texte noir sur fond clair)
+- --color-text-gray: #6b7280 (texte gris)
+
+Couleurs de fond :
+
+- --color-bg-white: #ffffff
+- --color-bg-gray-light: #f9fafb
+- --color-bg-gray: #f3f4f6
+
+TOUCH-FRIENDLY & INTERACTIONS
+
+Zones de tap minimales : 44px × 44px sur mobile
+
+Utiliser la classe "touch-manipulation" pour tous les éléments interactifs
+
+États actifs : utiliser "active:" au lieu de "hover:" sur mobile
+
+Feedback visuel immédiat : transitions rapides (200-300ms)
+
+Scrollbars stylisées : fines et discrètes (classe "scrollbar-hide" disponible)
+
+TYPOGRAPHIE RESPONSIVE
+
+Hiérarchie typographique adaptative :
+
+- Titres H1 : text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl
+- Titres H2 : text-xl sm:text-2xl md:text-3xl
+- Titres H3 : text-base sm:text-lg md:text-xl
+- Corps de texte : text-sm sm:text-base md:text-lg
+- Petits textes : text-xs sm:text-sm
+
+Line-height : 1.8 pour le corps de texte (lisibilité optimale)
+
+ESPACEMENTS ADAPTATIFS
+
+Padding responsive :
+
+- Mobile : px-3 py-4
+- sm : px-4 py-6
+- md : px-6 py-8
+- lg : px-8 py-12
+
+Gaps dans les grilles :
+
+- Mobile : gap-3 ou gap-4
+- sm : gap-4 ou gap-6
+- md : gap-6 ou gap-8
+
+LAYOUTS & GRID
+
+Mobile : empiler verticalement (flex-col)
+
+Desktop : utiliser grid ou flex-row selon le contexte
+
+Ordre des éléments : utiliser "order-1", "order-2" pour réorganiser sur mobile
+
+Exemples de grilles :
+
+- Produits : grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4
+- Features : grid-cols-1 sm:grid-cols-2 lg:grid-cols-4
+- Footer : grid-cols-2 md:grid-cols-4
+
+COMPOSANTS & SECTIONS
+
+Header :
+
+- Hauteur : h-14 sm:h-16
+- Logo : h-8 sm:h-10
+- Menu mobile : zones de tap larges avec feedback visuel
+
+Hero :
+
+- Layout : flex-col lg:grid lg:grid-cols-2
+- Texte centré sur mobile, aligné à gauche sur desktop
+- Boutons : w-full sm:w-auto sur mobile
+
+Categories :
+
+- Bannière promotionnelle : horizontale sur mobile, verticale sur desktop
+- Filtres : scroll horizontal sur mobile
+- Sidebar : en bas sur mobile, à droite sur desktop
+
+ProductDetail :
+
+- Image et infos : empilées sur mobile, côte à côte sur desktop
+- Description : conteneur scrollable avec max-height: 400px
+- Conteneur avec bordure et shadow pour la lisibilité
+
+CONTENEURS SCROLLABLES
+
+Pour les descriptions longues :
+
+- Classe : "scrollable-content"
+- max-height: 400px
+- overflow-y: auto
+- Bordure : border-2 border-gray-200
+- Fond : bg-white avec shadow-sm
+- Padding : p-4 sm:p-6 md:p-8
+
+ICÔNES
+
+Utiliser Lucide React pour toutes les icônes SVG
+
+Tailles responsives :
+
+- Petites : w-4 h-4 sm:w-5 sm:h-5
+- Moyennes : w-5 h-5 sm:w-6 sm:h-6
+- Grandes : w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20
+
+Couleur : utiliser les CSS variables (--color-primary-dark)
+
+BOUTONS & ACTIONS
+
+Styles de boutons :
+
+- btn-black : fond noir, texte blanc (CTA principal)
+- btn-yellow : fond jaune, texte bleu foncé (accent)
+- btn-white : fond blanc, texte bleu foncé (secondaire)
+
+Tailles responsives :
+
+- Mobile : px-6 py-3 text-sm
+- Desktop : px-8 py-4 text-base
+
+Pleine largeur sur mobile : w-full sm:w-auto
+
+ÉTATS & FEEDBACK
+
+Hover : uniquement sur desktop (hover:)
+
+Active : pour mobile (active:)
+
+Transitions : transition-colors, transition-all (200-300ms)
+
+Focus : visible et accessible (accessibilité)
+
+INTERDITS DE DESIGN
+
+Ne jamais utiliser de tailles fixes en pixels (sauf pour les images)
+
+Ne jamais oublier les breakpoints mobile
+
+Ne jamais utiliser hover: sans alternative active: pour mobile
+
+Ne jamais créer des zones de tap < 44px
+
+Ne jamais exposer de longues descriptions sans conteneur scrollable
+
+Ne jamais utiliser de couleurs en dur (toujours les CSS variables)
+
 🧩 ORGANISATION DU CODE
 
 Chaque section visuelle = un composant React

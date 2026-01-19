@@ -24,6 +24,9 @@ export default function Header() {
             <Link href="/" className="transition-colors nav-link">
               Accueil
             </Link>
+            <Link href="/shop" className="transition-colors nav-link font-semibold">
+              Boutique
+            </Link>
             <Link href="/categories" className="transition-colors nav-link">
               Catégories
             </Link>
@@ -88,6 +91,13 @@ export default function Header() {
               onClick={() => setIsMenuOpen(false)}
             >
               Accueil
+            </Link>
+            <Link 
+              href="/shop" 
+              className="block py-3 px-4 transition-colors nav-link rounded-lg hover:bg-white/10 active:bg-white/20 touch-manipulation font-semibold"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              Boutique
             </Link>
             <Link 
               href="/categories" 
