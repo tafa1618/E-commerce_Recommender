@@ -51,7 +51,7 @@ export default function Products({ products = [] }: ProductsProps) {
             </p>
           </div>
           <Link
-            href="/products"
+            href="/shop"
             className="hidden sm:block rounded-lg bg-primary-600 px-4 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm font-semibold text-white hover:bg-primary-700 active:bg-primary-800 transition-colors touch-manipulation"
           >
             Voir tout
@@ -100,7 +100,7 @@ export default function Products({ products = [] }: ProductsProps) {
 
         <div className="mt-8 text-center sm:hidden">
           <Link
-            href="/products"
+            href="/shop"
             className="inline-block rounded-lg bg-primary-600 px-6 py-3 text-sm font-semibold text-white hover:bg-primary-700 transition-colors"
           >
             Voir tous les produits

@@ -30,9 +30,6 @@ export default function Header() {
             <Link href="/categories" className="transition-colors nav-link">
               Catégories
             </Link>
-            <Link href="/products" className="transition-colors nav-link">
-              Produits
-            </Link>
             <Link href="/about" className="transition-colors nav-link">
               À propos
             </Link>
@@ -105,13 +102,6 @@ export default function Header() {
               onClick={() => setIsMenuOpen(false)}
             >
               Catégories
-            </Link>
-            <Link 
-              href="/products" 
-              className="block py-3 px-4 transition-colors nav-link rounded-lg hover:bg-white/10 active:bg-white/20 touch-manipulation"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Produits
             </Link>
             <Link 
               href="/about" 

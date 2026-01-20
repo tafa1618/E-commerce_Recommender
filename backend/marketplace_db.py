@@ -419,6 +419,152 @@ def get_produits_par_categorie(categorie: str, limit: int = 4) -> List[Dict]:
         conn.close()
 
 
+def get_produit_by_id(product_id: str) -> Optional[Dict]:
+    """
+    Récupère un produit par son ID
+    
+    Args:
+        product_id: ID du produit
+        
+    Returns:
+        Dict avec les données du produit ou None si non trouvé
+    """
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    try:
+        print(f"🔍 Recherche du produit {product_id} dans la base de données")
+        cursor.execute("SELECT * FROM produits_marketplace WHERE product_id = ?", (product_id,))
+        row = cursor.fetchone()
+        
+        if not row:
+            print(f"❌ Produit {product_id} non trouvé dans la table produits_marketplace")
+            # Vérifier s'il existe des produits dans la base
+            cursor.execute("SELECT COUNT(*) FROM produits_marketplace")
+            count = cursor.fetchone()[0]
+            print(f"ℹ️ Nombre total de produits dans la base: {count}")
+            if count > 0:
+                # Afficher quelques product_id pour debug
+                cursor.execute("SELECT product_id FROM produits_marketplace LIMIT 3")
+                sample_ids = cursor.fetchall()
+                print(f"ℹ️ Exemples d'IDs: {[r[0] for r in sample_ids]}")
+            return None
+        
+        columns = [description[0] for description in cursor.description]
+        produit = dict(zip(columns, row))
+        
+        print(f"✅ Produit trouvé: {produit.get('nom', 'N/A')}")
+        
+        # Parser les champs JSON
+        if produit.get('features_json'):
+            try:
+                produit['features'] = json.loads(produit['features_json'])
+            except:
+                produit['features'] = {}
+        else:
+            produit['features'] = {}
+        
+        # Parser les événements
+        if produit.get('events_json'):
+            try:
+                produit['events'] = json.loads(produit['events_json'])
+            except:
+                produit['events'] = []
+        else:
+            produit['events'] = []
+        
+        return produit
+        
+    except Exception as e:
+        print(f"❌ Erreur récupération produit {product_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+    finally:
+        conn.close()
+
+
+def mettre_a_jour_produit(
+    product_id: str,
+    produit: Dict,
+    description_seo: Optional[Dict] = None,
+    validation_data: Optional[Dict] = None,
+    niche_data: Optional[Dict] = None
+) -> Optional[str]:
+    """
+    Met à jour un produit existant
+    
+    Args:
+        product_id: ID du produit à modifier
+        produit: Données du produit à modifier
+        description_seo: Description SEO optionnelle
+        validation_data: Données de validation optionnelles
+        niche_data: Données de niche optionnelles
+        
+    Returns:
+        product_id si succès, None sinon
+    """
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    try:
+        # Vérifier que le produit existe
+        cursor.execute("SELECT id FROM produits_marketplace WHERE product_id = ?", (product_id,))
+        existing = cursor.fetchone()
+        
+        if not existing:
+            print(f"❌ Produit non trouvé: {product_id}")
+            return None
+        
+        # Mettre à jour le produit
+        cursor.execute("""
+            UPDATE produits_marketplace
+            SET nom = ?, description_seo = ?, meta_description = ?, mots_cles = ?,
+                prix = ?, prix_texte = ?, image = ?, lien = ?, categorie = ?, marque = ?,
+                note = ?, remise = ?, source = ?,
+                validation_score = ?, validated = ?,
+                niche_score = ?, niche_level = ?,
+                updated_at = CURRENT_TIMESTAMP,
+                features_json = ?
+            WHERE product_id = ?
+        """, (
+            produit.get('nom', ''),
+            description_seo.get('description_seo', '') if description_seo else None,
+            description_seo.get('meta_description', '') if description_seo else None,
+            description_seo.get('mots_cles', '') if description_seo else None,
+            produit.get('prix', 0),
+            produit.get('prix_texte', ''),
+            produit.get('image', ''),
+            produit.get('lien', ''),
+            produit.get('categorie', ''),
+            produit.get('marque', ''),
+            produit.get('note', ''),
+            produit.get('remise', ''),
+            produit.get('source', 'Manuel'),
+            validation_data.get('score', None) if validation_data else None,
+            bool(validation_data.get('validated', False)) if validation_data else False,
+            niche_data.get('score', None) if niche_data else None,
+            niche_data.get('level', None) if niche_data else None,
+            json.dumps({
+                'validation': validation_data,
+                'niche': niche_data,
+                'original_product': produit
+            }, ensure_ascii=False),
+            product_id
+        ))
+        
+        conn.commit()
+        print(f"✅ Produit modifié: {product_id}")
+        return product_id
+        
+    except Exception as e:
+        print(f"❌ Erreur modification produit {product_id}: {e}")
+        conn.rollback()
+        return None
+    finally:
+        conn.close()
+
+
 # Initialiser la DB au chargement du module
 init_marketplace_db()
 

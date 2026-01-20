@@ -1399,6 +1399,91 @@ async def track_event_marketplace(request: Dict):
         raise HTTPException(status_code=500, detail=f"Erreur lors de l'enregistrement: {str(e)}")
 
 
+@app.get("/api/marketplace/products/{product_id}")
+async def get_product_by_id(product_id: str):
+    """
+    Récupère un produit par son ID
+    
+    Args:
+        product_id: ID du produit
+        
+    Returns:
+        Le produit avec toutes ses données
+    """
+    try:
+        from marketplace_db import get_produit_by_id
+        print(f"🔍 Récupération du produit: {product_id}")
+        produit = get_produit_by_id(product_id)
+        print(f"📦 Produit trouvé: {produit is not None}")
+        if not produit:
+            print(f"❌ Produit {product_id} non trouvé dans la base de données")
+            raise HTTPException(status_code=404, detail="Produit non trouvé")
+        return {
+            "success": True,
+            "product": produit
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Erreur récupération produit {product_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération: {str(e)}")
+
+
+@app.put("/api/marketplace/products/{product_id}")
+async def update_product_by_id(product_id: str, request: PublishProductRequest):
+    """
+    Modifie un produit existant
+    
+    Args:
+        product_id: ID du produit à modifier
+        request: Données du produit modifié
+        
+    Returns:
+        ID du produit modifié
+    """
+    try:
+        from marketplace_db import get_produit_by_id, mettre_a_jour_produit
+        
+        # Vérifier que le produit existe
+        existing = get_produit_by_id(product_id)
+        if not existing:
+            raise HTTPException(status_code=404, detail="Produit non trouvé")
+        
+        # Télécharger l'image si une URL est fournie
+        if request.produit.get('image') and request.produit['image'].startswith(('http://', 'https://')):
+            temp_product_id = request.produit.get('product_id') or product_id
+            local_image_path = download_image(request.produit['image'], temp_product_id)
+            if local_image_path:
+                marketplace_public = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'Marketplace', 'public')
+                final_public_path = copy_image_to_public(local_image_path, marketplace_public)
+                if final_public_path:
+                    request.produit['image'] = final_public_path
+        
+        # Mettre à jour le produit
+        updated_id = mettre_a_jour_produit(
+            product_id=product_id,
+            produit=request.produit,
+            description_seo=request.description_seo,
+            validation_data=request.validation_data,
+            niche_data=request.niche_data
+        )
+        
+        if not updated_id:
+            raise HTTPException(status_code=500, detail="Erreur lors de la modification")
+        
+        return {
+            "success": True,
+            "product_id": updated_id,
+            "message": "Produit modifié avec succès"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la modification: {str(e)}")
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

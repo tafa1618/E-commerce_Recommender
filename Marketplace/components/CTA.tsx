@@ -19,7 +19,7 @@ export default function CTA() {
                 Créer un compte
               </Link>
               <Link
-                href="/products"
+                href="/shop"
                 className="rounded-lg px-8 py-3 text-base font-semibold shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 transition-colors btn-white"
               >
                 Voir les produits

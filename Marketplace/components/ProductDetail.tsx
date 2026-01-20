@@ -244,27 +244,33 @@ export default function ProductDetail({ product }: { product: Product }) {
               )}
             </div>
           </div>
+        </div>
 
-          {/* Mots-clés */}
-          {product.mots_cles && (
-            <div className="mt-8 pt-8 border-t border-gray-200">
-              <h3 className="font-semibold mb-3" style={{ color: 'var(--color-text-on-light)' }}>
+        {/* Mots-clés - Section séparée pour meilleure visibilité */}
+        {product.mots_cles && (
+          <div className="mx-auto max-w-4xl px-3 sm:px-4 md:px-6 lg:px-8 mt-6 sm:mt-8">
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 sm:p-6">
+              <h3 className="text-base sm:text-lg font-bold mb-4" style={{ color: 'var(--color-text-on-light)' }}>
                 Mots-clés
               </h3>
-              <div className="flex flex-wrap gap-2">
-                {product.mots_cles.split(',').map((keyword, index) => (
-                  <span
-                    key={index}
-                    className="px-3 py-1 bg-gray-200 rounded-full text-sm"
-                    style={{ color: 'var(--color-text-gray)' }}
-                  >
-                    {keyword.trim()}
-                  </span>
-                ))}
+              <div className="flex flex-wrap gap-2 sm:gap-3">
+                {product.mots_cles.split(',').map((keyword, index) => {
+                  const trimmedKeyword = keyword.trim()
+                  if (!trimmedKeyword) return null
+                  return (
+                    <span
+                      key={index}
+                      className="px-3 py-1.5 sm:px-4 sm:py-2 bg-gray-100 border border-gray-200 rounded-lg text-xs sm:text-sm font-medium transition-colors hover:bg-gray-200 active:bg-gray-300 touch-manipulation"
+                      style={{ color: 'var(--color-text-on-light)' }}
+                    >
+                      {trimmedKeyword}
+                    </span>
+                  )
+                })}
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </section>
 
       {/* Section cross-selling - mobile-first */}

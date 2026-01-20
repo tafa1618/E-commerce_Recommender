@@ -114,7 +114,7 @@ export default function Hero() {
                 )}
               </p>
               <Link
-                href={`/products?categorie=${encodeURIComponent(currentCategory.nom)}`}
+                href={`/shop?categorie=${encodeURIComponent(currentCategory.nom)}`}
                 className="inline-flex items-center gap-2 px-6 py-3 sm:px-8 sm:py-4 text-sm sm:text-base font-semibold transition-colors btn-black w-full sm:w-auto justify-center"
               >
                 EN SAVOIR PLUS
@@ -136,7 +136,7 @@ export default function Hero() {
                 Découvrez des milliers de produits de qualité
               </p>
               <Link
-                href="/products"
+                href="/shop"
                 className="inline-flex items-center gap-2 px-6 py-3 sm:px-8 sm:py-4 text-sm sm:text-base font-semibold transition-colors btn-black w-full sm:w-auto justify-center"
               >
                 EN SAVOIR PLUS
@@ -223,7 +223,7 @@ export default function Hero() {
                           
                           {/* Bouton CTA - pleine largeur sur mobile */}
                           <Link
-                            href={`/products?categorie=${encodeURIComponent(category.nom)}`}
+                            href={`/shop?categorie=${encodeURIComponent(category.nom)}`}
                             className="inline-block w-full sm:w-auto px-6 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base font-semibold transition-colors btn-black"
                           >
                             Voir les produits

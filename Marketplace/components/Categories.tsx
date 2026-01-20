@@ -517,7 +517,7 @@ export default function Categories() {
                     {subCategories.map((subCat, index) => (
                       <Link
                         key={index}
-                        href={`/products?categorie=${encodeURIComponent(subCat)}`}
+                        href={`/shop?categorie=${encodeURIComponent(subCat)}`}
                         className="block text-xs sm:text-sm px-3 py-1.5 active:bg-gray-50 rounded transition-colors touch-manipulation"
                         style={{ color: 'var(--color-text-on-light)' }}
                       >
