@@ -10,6 +10,7 @@ from datetime import datetime
 import sys
 import os
 import re
+import sqlite3
 
 # Ajouter le répertoire parent au path pour importer les modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -63,7 +64,7 @@ app = FastAPI(title="E-commerce Recommender API", version="1.0.0")
 # Configuration CORS pour permettre les requêtes depuis React
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173"],  # React dev servers
+    allow_origins=["http://localhost:3000", "http://localhost:3001", "http://localhost:5173"],  # React dev servers
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -137,6 +138,10 @@ class PublishProductRequest(BaseModel):
     niche_data: Optional[Dict] = None
     user_id: Optional[str] = None
     session_id: Optional[str] = None
+
+
+class UpdateStatusRequest(BaseModel):
+    status: str
 
 
 class VenteRequest(BaseModel):
@@ -1211,7 +1216,7 @@ async def get_products_by_category(categorie: str, limit: Optional[int] = 4):
 
 @app.get("/api/marketplace/products")
 async def get_products_marketplace_api(
-    status: Optional[str] = 'active',
+    status: Optional[str] = None,  # None = tous les produits (pour admin)
     limit: Optional[int] = None,
     offset: Optional[int] = None,
     categorie: Optional[str] = None,
@@ -1429,6 +1434,63 @@ async def get_product_by_id(product_id: str):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération: {str(e)}")
+
+
+class UpdateStatusRequest(BaseModel):
+    status: str
+
+@app.patch("/api/marketplace/products/{product_id}/status")
+async def update_product_status(product_id: str, request: UpdateStatusRequest):
+    """
+    Modifie uniquement le statut d'un produit
+    
+    Args:
+        product_id: ID du produit à modifier
+        request: UpdateStatusRequest avec 'status' (active, inactive, draft, archived)
+        
+    Returns:
+        Confirmation de la modification
+    """
+    try:
+        print(f"🔍 Backend: Modification du statut pour le produit {product_id}")
+        print(f"📝 Statut reçu: {request.status}")
+        
+        from marketplace_db import get_produit_by_id, mettre_a_jour_statut_produit
+        
+        status = request.status
+        if not status or status not in ['active', 'inactive', 'draft', 'archived']:
+            print(f"❌ Statut invalide: {status}")
+            raise HTTPException(status_code=400, detail="Statut invalide. Doit être: active, inactive, draft ou archived")
+        
+        # Vérifier que le produit existe
+        print(f"🔍 Vérification de l'existence du produit {product_id}")
+        existing = get_produit_by_id(product_id)
+        if not existing:
+            print(f"❌ Produit {product_id} non trouvé")
+            raise HTTPException(status_code=404, detail="Produit non trouvé")
+        
+        print(f"✅ Produit trouvé, mise à jour du statut vers: {status}")
+        # Mettre à jour le statut
+        updated = mettre_a_jour_statut_produit(product_id, status)
+        
+        if not updated:
+            print(f"❌ Échec de la mise à jour du statut")
+            raise HTTPException(status_code=500, detail="Erreur lors de la modification du statut")
+        
+        print(f"✅ Statut modifié avec succès: {product_id} -> {status}")
+        return {
+            "success": True,
+            "product_id": product_id,
+            "status": status,
+            "message": f"Statut modifié avec succès: {status}"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Erreur lors de la modification du statut: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la modification du statut: {str(e)}")
 
 
 @app.put("/api/marketplace/products/{product_id}")

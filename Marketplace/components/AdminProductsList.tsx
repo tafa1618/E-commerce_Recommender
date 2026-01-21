@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Edit, Trash2, Eye, Plus, Search, Filter } from 'lucide-react'
+import { Edit, Trash2, Eye, Plus, Search, Filter, Power } from 'lucide-react'
 
 interface Product {
   product_id: string
@@ -35,8 +35,12 @@ export default function AdminProductsList() {
       setLoading(true)
       setError(null)
       
-      const status = filterStatus === 'all' ? 'active' : filterStatus
-      const response = await fetch(`/api/products?status=${status}&limit=100`)
+      // Si "all", on récupère tous les produits sans filtre de statut
+      const url = filterStatus === 'all' 
+        ? `/api/products?limit=1000` 
+        : `/api/products?status=${filterStatus}&limit=100`
+      
+      const response = await fetch(url)
       
       if (!response.ok) {
         throw new Error('Erreur lors du chargement des produits')
@@ -64,6 +68,48 @@ export default function AdminProductsList() {
       fetchProducts()
     } catch (err: any) {
       alert('Erreur lors de la suppression: ' + err.message)
+    }
+  }
+
+  const handleToggleStatus = async (productId: string, currentStatus: string) => {
+    try {
+      const newStatus = currentStatus === 'active' ? 'inactive' : 'active'
+      console.log(`🔄 Changement de statut: ${productId} de ${currentStatus} vers ${newStatus}`)
+      
+      const url = `/api/products/${productId}?action=status`
+      console.log(`🌐 URL appelée: ${url}`)
+      
+      const response = await fetch(url, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: newStatus }),
+      })
+
+      console.log(`📡 Réponse reçue: ${response.status} ${response.statusText}`)
+
+      if (!response.ok) {
+        let errorData = {}
+        try {
+          errorData = await response.json()
+          console.error('❌ Erreur détaillée:', errorData)
+        } catch (e) {
+          const text = await response.text()
+          console.error('❌ Erreur (texte):', text)
+          throw new Error(`Erreur ${response.status}: ${text || response.statusText}`)
+        }
+        throw new Error(errorData.error || errorData.detail || `Erreur ${response.status}: ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      console.log('✅ Statut modifié avec succès:', data)
+
+      // Recharger les produits après modification
+      fetchProducts()
+    } catch (err: any) {
+      console.error('❌ Erreur complète:', err)
+      alert('Erreur lors de la modification du statut: ' + err.message)
     }
   }
 
@@ -234,12 +280,14 @@ export default function AdminProductsList() {
                         className={`px-2 py-0.5 text-xs font-medium rounded-full ${
                           product.status === 'active'
                             ? 'bg-green-100 text-green-800'
+                            : product.status === 'inactive'
+                            ? 'bg-red-100 text-red-800'
                             : product.status === 'draft'
                             ? 'bg-yellow-100 text-yellow-800'
                             : 'bg-gray-100 text-gray-800'
                         }`}
                       >
-                        {product.status === 'active' ? 'Actif' : product.status === 'draft' ? 'Brouillon' : 'Archivé'}
+                        {product.status === 'active' ? 'Actif' : product.status === 'inactive' ? 'Inactif' : product.status === 'draft' ? 'Brouillon' : 'Archivé'}
                       </span>
                     </td>
                     <td className="px-3 py-3 text-xs sm:text-sm text-gray-600">
@@ -251,6 +299,17 @@ export default function AdminProductsList() {
                     </td>
                     <td className="px-3 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => handleToggleStatus(product.product_id, product.status || 'active')}
+                          className={`p-1.5 rounded transition-colors ${
+                            product.status === 'active'
+                              ? 'text-green-600 hover:text-green-900 hover:bg-green-50'
+                              : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+                          }`}
+                          title={product.status === 'active' ? 'Désactiver' : 'Activer'}
+                        >
+                          <Power className={`w-4 h-4 ${product.status === 'active' ? 'fill-current' : ''}`} />
+                        </button>
                         <Link
                           href={`/products/${product.product_id}`}
                           target="_blank"
@@ -319,16 +378,29 @@ export default function AdminProductsList() {
                         className={`px-2 py-0.5 text-xs font-medium rounded-full ${
                           product.status === 'active'
                             ? 'bg-green-100 text-green-800'
+                            : product.status === 'inactive'
+                            ? 'bg-red-100 text-red-800'
                             : product.status === 'draft'
                             ? 'bg-yellow-100 text-yellow-800'
                             : 'bg-gray-100 text-gray-800'
                         }`}
                       >
-                        {product.status === 'active' ? 'Actif' : product.status === 'draft' ? 'Brouillon' : 'Archivé'}
+                        {product.status === 'active' ? 'Actif' : product.status === 'inactive' ? 'Inactif' : product.status === 'draft' ? 'Brouillon' : 'Archivé'}
                       </span>
                     </div>
                   </div>
                   <div className="flex flex-col gap-2">
+                    <button
+                      onClick={() => handleToggleStatus(product.product_id, product.status || 'active')}
+                      className={`p-2 rounded transition-colors touch-manipulation ${
+                        product.status === 'active'
+                          ? 'text-green-600 hover:text-green-900 hover:bg-green-50'
+                          : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+                      }`}
+                      title={product.status === 'active' ? 'Désactiver' : 'Activer'}
+                    >
+                      <Power className={`w-4 h-4 ${product.status === 'active' ? 'fill-current' : ''}`} />
+                    </button>
                     <Link
                       href={`/products/${product.product_id}`}
                       target="_blank"

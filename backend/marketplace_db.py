@@ -219,7 +219,7 @@ def publier_produit(produit: Dict, description_seo: Optional[Dict] = None,
 
 
 def get_produits_marketplace(
-    status: str = 'active', 
+    status: Optional[str] = None, 
     limit: Optional[int] = None, 
     offset: Optional[int] = None,
     categorie: Optional[str] = None,
@@ -244,20 +244,22 @@ def get_produits_marketplace(
         params = [status]
         
         if categorie:
-            query += " AND categorie = ?"
-            count_query += " AND categorie = ?"
+            where_clause = " WHERE " if not status else " AND "
+            query += f"{where_clause}categorie = ?"
+            count_query += f"{where_clause}categorie = ?"
             params.append(categorie)
             count_params.append(categorie)
         
         if search:
             search_pattern = f"%{search}%"
-            query += " AND (nom LIKE ? OR description_seo LIKE ? OR meta_description LIKE ? OR mots_cles LIKE ?)"
-            count_query += " AND (nom LIKE ? OR description_seo LIKE ? OR meta_description LIKE ? OR mots_cles LIKE ?)"
+            where_clause = " WHERE " if not status and not categorie else " AND "
+            query += f"{where_clause}(nom LIKE ? OR description_seo LIKE ? OR meta_description LIKE ? OR mots_cles LIKE ?)"
+            count_query += f"{where_clause}(nom LIKE ? OR description_seo LIKE ? OR meta_description LIKE ? OR mots_cles LIKE ?)"
             params.extend([search_pattern, search_pattern, search_pattern, search_pattern])
             count_params.extend([search_pattern, search_pattern, search_pattern, search_pattern])
         
         # Compter le total
-        cursor.execute(count_query, tuple(count_params))
+        cursor.execute(count_query, tuple(count_params) if count_params else ())
         total = cursor.fetchone()[0]
         
         # Requête principale avec tri
@@ -269,7 +271,7 @@ def get_produits_marketplace(
             if offset is not None:
                 query += f" OFFSET {offset}"
         
-        cursor.execute(query, tuple(params))
+        cursor.execute(query, tuple(params) if params else ())
         rows = cursor.fetchall()
         
         # Récupérer les noms de colonnes
@@ -561,6 +563,48 @@ def mettre_a_jour_produit(
         print(f"❌ Erreur modification produit {product_id}: {e}")
         conn.rollback()
         return None
+    finally:
+        conn.close()
+
+
+def mettre_a_jour_statut_produit(product_id: str, status: str) -> bool:
+    """
+    Met à jour uniquement le statut d'un produit
+    
+    Args:
+        product_id: ID du produit à modifier
+        status: Nouveau statut (active, inactive, draft, archived)
+        
+    Returns:
+        True si succès, False sinon
+    """
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    try:
+        # Vérifier que le produit existe
+        cursor.execute("SELECT id FROM produits_marketplace WHERE product_id = ?", (product_id,))
+        existing = cursor.fetchone()
+        
+        if not existing:
+            print(f"❌ Produit non trouvé: {product_id}")
+            return False
+        
+        # Mettre à jour le statut
+        cursor.execute("""
+            UPDATE produits_marketplace
+            SET status = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE product_id = ?
+        """, (status, product_id))
+        
+        conn.commit()
+        print(f"✅ Statut du produit {product_id} modifié: {status}")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Erreur modification statut produit {product_id}: {e}")
+        conn.rollback()
+        return False
     finally:
         conn.close()
 
