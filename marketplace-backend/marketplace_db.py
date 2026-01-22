@@ -314,28 +314,33 @@ def get_produits_marketplace(
     cursor = conn.cursor()
     
     try:
-        # Requête pour compter le total (sans pagination)
-        count_query = "SELECT COUNT(*) FROM produits_marketplace WHERE status = ?"
-        count_params = [status]
+        # Construire les clauses WHERE dynamiquement
+        where_clauses = []
+        params = []
+        count_params = []
         
-        # Requête pour récupérer les produits
-        query = "SELECT * FROM produits_marketplace WHERE status = ?"
-        params = [status]
+        # Filtrer par status si fourni
+        if status:
+            where_clauses.append("status = ?")
+            params.append(status)
+            count_params.append(status)
         
         if categorie:
-            where_clause = " WHERE " if not status else " AND "
-            query += f"{where_clause}categorie = ?"
-            count_query += f"{where_clause}categorie = ?"
+            where_clauses.append("categorie = ?")
             params.append(categorie)
             count_params.append(categorie)
         
         if search:
             search_pattern = f"%{search}%"
-            where_clause = " WHERE " if not status and not categorie else " AND "
-            query += f"{where_clause}(nom LIKE ? OR description_seo LIKE ? OR meta_description LIKE ? OR mots_cles LIKE ?)"
-            count_query += f"{where_clause}(nom LIKE ? OR description_seo LIKE ? OR meta_description LIKE ? OR mots_cles LIKE ?)"
+            where_clauses.append("(nom LIKE ? OR description_seo LIKE ? OR meta_description LIKE ? OR mots_cles LIKE ?)")
             params.extend([search_pattern, search_pattern, search_pattern, search_pattern])
             count_params.extend([search_pattern, search_pattern, search_pattern, search_pattern])
+        
+        # Construire les requêtes avec les clauses WHERE
+        where_sql = " WHERE " + " AND ".join(where_clauses) if where_clauses else ""
+        
+        count_query = f"SELECT COUNT(*) FROM produits_marketplace{where_sql}"
+        query = f"SELECT * FROM produits_marketplace{where_sql}"
         
         # Compter le total
         cursor.execute(count_query, tuple(count_params) if count_params else ())

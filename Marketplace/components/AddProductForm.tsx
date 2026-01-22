@@ -19,10 +19,15 @@ export default function AddProductForm({ onSuccess }: AddProductFormProps) {
   const [success, setSuccess] = useState(false)
   const [imagePreview, setImagePreview] = useState<string>('')
   
-  const [categories, setCategories] = useState<string[]>([])
+  const [categories, setCategories] = useState<Array<{id?: number, nom: string, slug?: string, description?: string, icone?: string} | string>>([])
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [newCategory, setNewCategory] = useState('')
   const [showNewCategoryInput, setShowNewCategoryInput] = useState(false)
+  
+  // Helper pour obtenir le nom d'une catégorie (string ou objet)
+  const getCategoryName = (cat: string | {nom: string}): string => {
+    return typeof cat === 'string' ? cat : cat.nom
+  }
 
   const [formData, setFormData] = useState({
     nom: '',
@@ -349,11 +354,15 @@ export default function AddProductForm({ onSuccess }: AddProductFormProps) {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black transition-colors"
             >
               <option value="">Sélectionner une catégorie...</option>
-              {categories.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
+              {categories.map((cat) => {
+                const catName = getCategoryName(cat)
+                const catValue = typeof cat === 'string' ? cat : cat.nom
+                return (
+                  <option key={catValue} value={catValue}>
+                    {catName}
+                  </option>
+                )
+              })}
             </select>
           </div>
 

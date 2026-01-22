@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
       headers: {
         'Content-Type': 'application/json',
       },
-      next: { revalidate: 60 }, // Cache pendant 60 secondes
+      cache: 'no-store', // Pas de cache pour avoir les données à jour en admin
     })
 
     if (!response.ok) {
