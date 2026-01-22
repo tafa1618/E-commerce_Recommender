@@ -15,31 +15,27 @@ interface EditProductPageProps {
 
 async function getProduct(id: string) {
   try {
-    // Utiliser la même méthode que la page produit qui fonctionne
-    // Récupérer tous les produits et filtrer par ID
-    const apiUrl = process.env.BACKEND_API_URL || 'http://localhost:8000'
-    const res = await fetch(`${apiUrl}/api/marketplace/products?status=active&limit=1000`, {
+    // Utiliser le nouveau backend marketplace
+    const apiUrl = process.env.MARKETPLACE_API_URL || 'http://localhost:8001'
+    // Récupérer directement le produit par ID
+    const res = await fetch(`${apiUrl}/api/marketplace/products/${id}`, {
       cache: 'no-store',
     })
 
     if (!res.ok) {
-      console.error(`❌ API returned ${res.status} for products list`)
+      console.error(`❌ API returned ${res.status} for product ${id}`)
       return null
     }
 
     const data = await res.json()
-    const products = data.produits || []
     
-    // Trouver le produit avec le bon ID
-    const product = products.find((p: any) => p.product_id === id)
-    
-    if (!product) {
-      console.error(`❌ Product ${id} not found in products list`)
+    if (!data.success || !data.produit) {
+      console.error(`❌ Product ${id} not found`)
       return null
     }
 
-    console.log(`✅ Product found: ${product.nom}`)
-    return product
+    console.log(`✅ Product found: ${data.produit.nom}`)
+    return data.produit
   } catch (error) {
     console.error(`❌ Error fetching product ${id}:`, error)
     return null

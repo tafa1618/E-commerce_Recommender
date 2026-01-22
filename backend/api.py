@@ -1,7 +1,7 @@
 """
 API FastAPI pour l'analyse de produits e-commerce
 """
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -42,8 +42,7 @@ init_database()  # Alibaba cache
 from boutique_csv import generate_boutique_csv_wordpress, generate_boutique_csv_shopify
 from marketing import generer_descriptif_marketing, generer_descriptifs_batch, sauvegarder_campagne, get_campagnes
 from boutique_descriptions import generer_description_seo, generer_descriptions_batch_boutique, generer_description_seo_simple
-from marketplace_db import publier_produit, get_produits_marketplace, enregistrer_evenement, get_categories_phares, get_produits_par_categorie
-from image_downloader import download_image, copy_image_to_public
+# Marketplace déplacé vers marketplace-backend séparé
 from marketing_seo import generer_description_seo_marketing
 from journal_vente import (
     init_journal_db, ajouter_vente, get_ventes, get_vente_par_id,
@@ -61,6 +60,10 @@ from niche_validator import analyser_niche
 
 app = FastAPI(title="E-commerce Recommender API", version="1.0.0")
 
+# Router séparé pour les routes avec {product_id} - Force l'enregistrement correct
+# Pas de prefix pour éviter les conflits avec la route générale
+marketplace_products_router = APIRouter(tags=["Marketplace - Produits"])
+
 # Configuration CORS pour permettre les requêtes depuis React
 app.add_middleware(
     CORSMiddleware,
@@ -69,6 +72,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# IMPORTANT: Inclure le router IMMÉDIATEMENT après la configuration CORS
+# pour s'assurer qu'il est enregistré avant toutes les autres routes
+# (sera inclus plus tard après la définition des routes du router)
 
 
 # =========================
@@ -131,17 +138,7 @@ class SEODescriptionRequest(BaseModel):
     texte_produit: str  # Nom ou description du produit à améliorer
 
 
-class PublishProductRequest(BaseModel):
-    produit: Dict
-    description_seo: Optional[Dict] = None
-    validation_data: Optional[Dict] = None
-    niche_data: Optional[Dict] = None
-    user_id: Optional[str] = None
-    session_id: Optional[str] = None
-
-
-class UpdateStatusRequest(BaseModel):
-    status: str
+# PublishProductRequest et UpdateStatusRequest déplacés vers marketplace-backend
 
 
 class VenteRequest(BaseModel):
@@ -1165,13 +1162,11 @@ async def validate_products(request: ValidateProductsRequest):
 
 
 # =========================
-# ENDPOINTS MARKETPLACE - CATÉGORIES PHARES
+# MARKETPLACE DÉPLACÉ VERS marketplace-backend (port 8001)
+# Toutes les routes marketplace sont maintenant dans marketplace-backend/api.py
 # =========================
 
-@app.get("/api/marketplace/categories-phares")
-async def get_featured_categories(limit: Optional[int] = 6):
-    """
-    Récupère les catégories phares basées sur des métriques intelligentes (ML-ready).
+# Les routes marketplace ont été supprimées et déplacées vers marketplace-backend
     
     Args:
         limit: Nombre de catégories à retourner
@@ -1209,56 +1204,6 @@ async def get_products_by_category(categorie: str, limit: Optional[int] = 4):
             "produits": produits,
             "categorie": categorie,
             "count": len(produits)
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération: {str(e)}")
-
-
-@app.get("/api/marketplace/products")
-async def get_products_marketplace_api(
-    status: Optional[str] = None,  # None = tous les produits (pour admin)
-    limit: Optional[int] = None,
-    offset: Optional[int] = None,
-    categorie: Optional[str] = None,
-    search: Optional[str] = None
-):
-    """
-    Récupère les produits du marketplace avec pagination et recherche
-    
-    Args:
-        status: Statut des produits (active, draft, archived)
-        limit: Nombre de produits à retourner
-        offset: Nombre de produits à ignorer (pour pagination)
-        categorie: Filtrer par catégorie
-        search: Recherche textuelle dans nom, description, mots-clés
-        
-    Returns:
-        Dict avec produits, total et count
-    """
-    try:
-        result = get_produits_marketplace(
-            status=status, 
-            limit=limit, 
-            offset=offset,
-            categorie=categorie,
-            search=search
-        )
-        
-        # Si l'ancienne version retourne une liste, adapter
-        if isinstance(result, list):
-            return {
-                "success": True,
-                "produits": result,
-                "count": len(result),
-                "total": len(result)
-            }
-        
-        # Nouvelle version avec total
-        return {
-            "success": True,
-            "produits": result.get('produits', []),
-            "count": result.get('count', 0),
-            "total": result.get('total', 0)
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération: {str(e)}")
@@ -1319,6 +1264,229 @@ async def publish_product_marketplace(request: PublishProductRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur lors de la publication: {str(e)}")
+
+
+# =========================
+# ROUTES MARKETPLACE - PRODUITS PAR ID (AVEC ROUTER SÉPARÉ)
+# =========================
+
+@app.get("/api/marketplace/products/{product_id}", tags=["Marketplace - Produits"])
+async def get_product_by_id(product_id: str):
+    """
+    Récupère un produit par son ID
+    
+    Args:
+        product_id: ID du produit
+        
+    Returns:
+        Le produit avec toutes ses données
+    """
+    try:
+        print(f"🔍 Récupération du produit: {product_id}")
+        produit = get_produit_by_id(product_id)
+        print(f"📦 Produit trouvé: {produit is not None}")
+        if not produit:
+            print(f"❌ Produit {product_id} non trouvé dans la base de données")
+            raise HTTPException(status_code=404, detail="Produit non trouvé")
+        return {
+            "success": True,
+            "produit": produit
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Erreur récupération produit {product_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération: {str(e)}")
+
+
+class UpdateStatusRequest(BaseModel):
+    status: str
+
+@app.patch("/api/marketplace/products/{product_id}/status", tags=["Marketplace - Produits"])
+async def update_product_status(product_id: str, request: UpdateStatusRequest):
+    """
+    Modifie uniquement le statut d'un produit
+    
+    Args:
+        product_id: ID du produit à modifier
+        request: UpdateStatusRequest avec 'status' (active, inactive, draft, archived)
+        
+    Returns:
+        Confirmation de la modification
+    """
+    try:
+        print(f"🔍 Backend: Modification du statut pour le produit {product_id}")
+        print(f"📝 Statut reçu: {request.status}")
+        
+        
+        status = request.status
+        if not status or status not in ['active', 'inactive', 'draft', 'archived']:
+            print(f"❌ Statut invalide: {status}")
+            raise HTTPException(status_code=400, detail="Statut invalide. Doit être: active, inactive, draft ou archived")
+        
+        # Vérifier que le produit existe
+        print(f"🔍 Vérification de l'existence du produit {product_id}")
+        existing = get_produit_by_id(product_id)
+        if not existing:
+            print(f"❌ Produit {product_id} non trouvé")
+            raise HTTPException(status_code=404, detail="Produit non trouvé")
+        
+        print(f"✅ Produit trouvé, mise à jour du statut vers: {status}")
+        # Mettre à jour le statut
+        updated = mettre_a_jour_statut_produit(product_id, status)
+        
+        if not updated:
+            print(f"❌ Échec de la mise à jour du statut")
+            raise HTTPException(status_code=500, detail="Erreur lors de la modification du statut")
+        
+        print(f"✅ Statut modifié avec succès: {product_id} -> {status}")
+        return {
+            "success": True,
+            "product_id": product_id,
+            "status": status,
+            "message": f"Statut modifié avec succès: {status}"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Erreur lors de la modification du statut: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la modification du statut: {str(e)}")
+
+
+@app.delete("/api/marketplace/products/{product_id}", tags=["Marketplace - Produits"])
+async def delete_product_by_id(product_id: str):
+    """
+    Supprime un produit du marketplace
+    
+    Args:
+        product_id: ID du produit à supprimer
+        
+    Returns:
+        Confirmation de la suppression
+    """
+    try:
+        print(f"🗑️ Backend: Suppression du produit {product_id}")
+        
+        # Supprimer le produit
+        success = supprimer_produit(product_id)
+        
+        if not success:
+            print(f"❌ Échec de la suppression")
+            raise HTTPException(status_code=404, detail="Produit non trouvé")
+        
+        print(f"✅ Produit {product_id} supprimé avec succès")
+        return {
+            "success": True,
+            "message": "Produit supprimé"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Erreur lors de la suppression du produit: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la suppression: {str(e)}")
+
+
+@app.put("/api/marketplace/products/{product_id}", tags=["Marketplace - Produits"])
+async def update_product_by_id(product_id: str, request: PublishProductRequest):
+    """
+    Modifie un produit existant
+    
+    Args:
+        product_id: ID du produit à modifier
+        request: Données du produit à modifier
+        
+    Returns:
+        Confirmation de la modification
+    """
+    try:
+        # Vérifier que le produit existe
+        existing = get_produit_by_id(product_id)
+        if not existing:
+            raise HTTPException(status_code=404, detail="Produit non trouvé")
+        
+        # Mettre à jour le produit avec les paramètres séparés
+        updated_id = mettre_a_jour_produit(
+            product_id=product_id,
+            produit=request.produit,
+            description_seo=request.description_seo,
+            validation_data=request.validation_data,
+            niche_data=request.niche_data
+        )
+        
+        if not updated_id:
+            raise HTTPException(status_code=404, detail="Produit non trouvé")
+        
+        return {
+            "success": True,
+            "product_id": updated_id
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Erreur lors de la modification: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la modification: {str(e)}")
+
+
+# =========================
+# ROUTE MARKETPLACE - LISTE DES PRODUITS (DOIT ÊTRE APRÈS LES ROUTES SPÉCIFIQUES)
+# =========================
+
+@app.get("/api/marketplace/products")
+async def get_products_marketplace_api(
+    status: Optional[str] = None,  # None = tous les produits (pour admin)
+    limit: Optional[int] = None,
+    offset: Optional[int] = None,
+    categorie: Optional[str] = None,
+    search: Optional[str] = None
+):
+    """
+    Récupère les produits du marketplace avec pagination et recherche
+    
+    Args:
+        status: Statut des produits (active, draft, archived)
+        limit: Nombre de produits à retourner
+        offset: Nombre de produits à ignorer (pour pagination)
+        categorie: Filtrer par catégorie
+        search: Recherche textuelle dans nom, description, mots-clés
+        
+    Returns:
+        Dict avec produits, total et count
+    """
+    try:
+        result = get_produits_marketplace(
+            status=status, 
+            limit=limit, 
+            offset=offset,
+            categorie=categorie,
+            search=search
+        )
+        
+        # Si l'ancienne version retourne une liste, adapter
+        if isinstance(result, list):
+            return {
+                "success": True,
+                "produits": result,
+                "count": len(result),
+                "total": len(result)
+            }
+        
+        # Nouvelle version avec total
+        return {
+            "success": True,
+            "produits": result.get('produits', []),
+            "count": result.get('count', 0),
+            "total": result.get('total', 0)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération: {str(e)}")
 
 
 @app.post("/api/marketplace/publish-products-batch")
@@ -1404,147 +1572,7 @@ async def track_event_marketplace(request: Dict):
         raise HTTPException(status_code=500, detail=f"Erreur lors de l'enregistrement: {str(e)}")
 
 
-@app.get("/api/marketplace/products/{product_id}")
-async def get_product_by_id(product_id: str):
-    """
-    Récupère un produit par son ID
-    
-    Args:
-        product_id: ID du produit
-        
-    Returns:
-        Le produit avec toutes ses données
-    """
-    try:
-        from marketplace_db import get_produit_by_id
-        print(f"🔍 Récupération du produit: {product_id}")
-        produit = get_produit_by_id(product_id)
-        print(f"📦 Produit trouvé: {produit is not None}")
-        if not produit:
-            print(f"❌ Produit {product_id} non trouvé dans la base de données")
-            raise HTTPException(status_code=404, detail="Produit non trouvé")
-        return {
-            "success": True,
-            "product": produit
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"❌ Erreur récupération produit {product_id}: {e}")
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération: {str(e)}")
-
-
-class UpdateStatusRequest(BaseModel):
-    status: str
-
-@app.patch("/api/marketplace/products/{product_id}/status")
-async def update_product_status(product_id: str, request: UpdateStatusRequest):
-    """
-    Modifie uniquement le statut d'un produit
-    
-    Args:
-        product_id: ID du produit à modifier
-        request: UpdateStatusRequest avec 'status' (active, inactive, draft, archived)
-        
-    Returns:
-        Confirmation de la modification
-    """
-    try:
-        print(f"🔍 Backend: Modification du statut pour le produit {product_id}")
-        print(f"📝 Statut reçu: {request.status}")
-        
-        from marketplace_db import get_produit_by_id, mettre_a_jour_statut_produit
-        
-        status = request.status
-        if not status or status not in ['active', 'inactive', 'draft', 'archived']:
-            print(f"❌ Statut invalide: {status}")
-            raise HTTPException(status_code=400, detail="Statut invalide. Doit être: active, inactive, draft ou archived")
-        
-        # Vérifier que le produit existe
-        print(f"🔍 Vérification de l'existence du produit {product_id}")
-        existing = get_produit_by_id(product_id)
-        if not existing:
-            print(f"❌ Produit {product_id} non trouvé")
-            raise HTTPException(status_code=404, detail="Produit non trouvé")
-        
-        print(f"✅ Produit trouvé, mise à jour du statut vers: {status}")
-        # Mettre à jour le statut
-        updated = mettre_a_jour_statut_produit(product_id, status)
-        
-        if not updated:
-            print(f"❌ Échec de la mise à jour du statut")
-            raise HTTPException(status_code=500, detail="Erreur lors de la modification du statut")
-        
-        print(f"✅ Statut modifié avec succès: {product_id} -> {status}")
-        return {
-            "success": True,
-            "product_id": product_id,
-            "status": status,
-            "message": f"Statut modifié avec succès: {status}"
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"❌ Erreur lors de la modification du statut: {e}")
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Erreur lors de la modification du statut: {str(e)}")
-
-
-@app.put("/api/marketplace/products/{product_id}")
-async def update_product_by_id(product_id: str, request: PublishProductRequest):
-    """
-    Modifie un produit existant
-    
-    Args:
-        product_id: ID du produit à modifier
-        request: Données du produit modifié
-        
-    Returns:
-        ID du produit modifié
-    """
-    try:
-        from marketplace_db import get_produit_by_id, mettre_a_jour_produit
-        
-        # Vérifier que le produit existe
-        existing = get_produit_by_id(product_id)
-        if not existing:
-            raise HTTPException(status_code=404, detail="Produit non trouvé")
-        
-        # Télécharger l'image si une URL est fournie
-        if request.produit.get('image') and request.produit['image'].startswith(('http://', 'https://')):
-            temp_product_id = request.produit.get('product_id') or product_id
-            local_image_path = download_image(request.produit['image'], temp_product_id)
-            if local_image_path:
-                marketplace_public = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'Marketplace', 'public')
-                final_public_path = copy_image_to_public(local_image_path, marketplace_public)
-                if final_public_path:
-                    request.produit['image'] = final_public_path
-        
-        # Mettre à jour le produit
-        updated_id = mettre_a_jour_produit(
-            product_id=product_id,
-            produit=request.produit,
-            description_seo=request.description_seo,
-            validation_data=request.validation_data,
-            niche_data=request.niche_data
-        )
-        
-        if not updated_id:
-            raise HTTPException(status_code=500, detail="Erreur lors de la modification")
-        
-        return {
-            "success": True,
-            "product_id": updated_id,
-            "message": "Produit modifié avec succès"
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erreur lors de la modification: {str(e)}")
-
+# Diagnostic routes marketplace supprimé (déplacé vers marketplace-backend)
 
 if __name__ == "__main__":
     import uvicorn

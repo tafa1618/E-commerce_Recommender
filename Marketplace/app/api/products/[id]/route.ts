@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const API_BASE_URL = process.env.BACKEND_API_URL || 'http://localhost:8000'
+const API_BASE_URL = process.env.MARKETPLACE_API_URL || 'http://localhost:8001'
 
 /**
  * GET /api/products/[id]
@@ -196,6 +196,81 @@ export async function PATCH(
       { 
         success: false, 
         error: error instanceof Error ? error.message : 'Erreur lors de la modification du statut' 
+      },
+      { status: 500 }
+    )
+  }
+}
+
+/**
+ * DELETE /api/products/[id]
+ * Supprime un produit du marketplace
+ */
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+    console.log(`🗑️ API Next.js: Suppression du produit ${id}`)
+
+    const response = await fetch(`${API_BASE_URL}/api/marketplace/products/${id}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    console.log(`📡 Réponse backend: ${response.status} ${response.statusText}`)
+
+    if (!response.ok) {
+      let errorData = {}
+      try {
+        const responseText = await response.text()
+        console.error(`❌ Réponse backend (texte brut):`, responseText)
+        
+        try {
+          errorData = JSON.parse(responseText)
+          console.error(`❌ Erreur backend (JSON):`, errorData)
+        } catch (parseError) {
+          console.error(`❌ Erreur backend (texte):`, responseText)
+          return NextResponse.json(
+            { 
+              success: false, 
+              error: `Backend error (${response.status}): ${responseText || response.statusText}` 
+            },
+            { status: response.status }
+          )
+        }
+      } catch (e) {
+        console.error(`❌ Erreur lors de la lecture de la réponse:`, e)
+        return NextResponse.json(
+          { 
+            success: false, 
+            error: `Erreur lors de la lecture de la réponse backend: ${e instanceof Error ? e.message : String(e)}` 
+          },
+          { status: 500 }
+        )
+      }
+      
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: errorData.detail || errorData.error || `Erreur lors de la suppression (${response.status})` 
+        },
+        { status: response.status }
+      )
+    }
+
+    const data = await response.json()
+    console.log('✅ Produit supprimé avec succès:', data)
+    return NextResponse.json(data)
+  } catch (error) {
+    console.error('Error deleting product:', error)
+    return NextResponse.json(
+      { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Erreur lors de la suppression du produit' 
       },
       { status: 500 }
     )

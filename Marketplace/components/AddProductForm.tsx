@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { Upload, X, Loader2 } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Upload, X, Loader2, Plus, Tag, Sparkles } from 'lucide-react'
 
 interface AddProductFormProps {
   onSuccess?: () => void
@@ -14,22 +14,44 @@ const API_BASE_URL = typeof window !== 'undefined'
 
 export default function AddProductForm({ onSuccess }: AddProductFormProps) {
   const [loading, setLoading] = useState(false)
+  const [generatingSEO, setGeneratingSEO] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [imagePreview, setImagePreview] = useState<string>('')
   
+  const [categories, setCategories] = useState<string[]>([])
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([])
+  const [newCategory, setNewCategory] = useState('')
+  const [showNewCategoryInput, setShowNewCategoryInput] = useState(false)
+
   const [formData, setFormData] = useState({
     nom: '',
     prix: '',
     prix_texte: '',
     image: '',
-    categorie: '',
+    categorie: '', // Garder pour compatibilité, mais utiliser selectedCategories
     marque: '',
     lien: '',
     description_seo: '',
     meta_description: '',
     mots_cles: '',
   })
+
+  // Charger les catégories disponibles
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const response = await fetch('/api/categories')
+        if (response.ok) {
+          const data = await response.json()
+          setCategories(data.categories || [])
+        }
+      } catch (err) {
+        console.error('Erreur chargement catégories:', err)
+      }
+    }
+    loadCategories()
+  }, [])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -63,6 +85,52 @@ export default function AddProductForm({ onSuccess }: AddProductFormProps) {
     }
   }
 
+  const handleGenerateSEO = async () => {
+    if (!formData.nom.trim()) {
+      setError('Veuillez d\'abord saisir le nom du produit')
+      return
+    }
+
+    setGeneratingSEO(true)
+    setError(null)
+
+    try {
+      // Préparer le texte avec nom et marque si disponible
+      const texte_produit = formData.nom.trim() + (formData.marque.trim() ? ` ${formData.marque.trim()}` : '')
+      
+      const response = await fetch('/api/products/generate-seo', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ texte_produit }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || errorData.detail || 'Erreur lors de la génération SEO')
+      }
+
+      const data = await response.json()
+      
+      if (data.success && data.description) {
+        setFormData(prev => ({
+          ...prev,
+          description_seo: data.description.description_seo || '',
+          meta_description: data.description.meta_description || '',
+          mots_cles: data.description.mots_cles || '',
+        }))
+      } else {
+        throw new Error('Aucune description générée')
+      }
+    } catch (err: any) {
+      console.error('Erreur génération SEO:', err)
+      setError(err.message || 'Erreur lors de la génération de la description SEO')
+    } finally {
+      setGeneratingSEO(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -79,13 +147,19 @@ export default function AddProductForm({ onSuccess }: AddProductFormProps) {
         throw new Error('Le prix est obligatoire')
       }
 
+      // Préparer les catégories (utiliser selectedCategories ou newCategory)
+      const categoriesToUse = selectedCategories.length > 0 
+        ? selectedCategories 
+        : (newCategory.trim() ? [newCategory.trim()] : ['Non catégorisé'])
+
       // Préparer les données du produit
       const produit = {
         nom: formData.nom.trim(),
         prix: parseFloat(formData.prix) || 0,
         prix_texte: formData.prix_texte.trim() || `${parseFloat(formData.prix) || 0} FCFA`,
         image: formData.image.trim(),
-        categorie: formData.categorie.trim() || 'Non catégorisé',
+        categorie: categoriesToUse.join(', '), // Pour compatibilité avec l'ancien système
+        categories: categoriesToUse, // Nouveau système avec plusieurs catégories
         marque: formData.marque.trim() || '',
         lien: formData.lien.trim() || '',
         source: 'Manuel',
@@ -126,6 +200,7 @@ export default function AddProductForm({ onSuccess }: AddProductFormProps) {
       const data = await response.json()
 
       if (data.success) {
+        console.log('✅ Produit publié avec succès, product_id:', data.product_id)
         setSuccess(true)
         // Réinitialiser le formulaire
         setFormData({
@@ -140,6 +215,9 @@ export default function AddProductForm({ onSuccess }: AddProductFormProps) {
           meta_description: '',
           mots_cles: '',
         })
+        setSelectedCategories([])
+        setNewCategory('')
+        setShowNewCategoryInput(false)
         setImagePreview('')
         
         // Callback de succès
@@ -230,20 +308,109 @@ export default function AddProductForm({ onSuccess }: AddProductFormProps) {
           />
         </div>
 
-        {/* Catégorie */}
+        {/* Catégories (sélection multiple) */}
         <div>
-          <label htmlFor="categorie" className="block text-sm font-medium text-gray-700 mb-1.5">
-            Catégorie
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            Catégories <span className="text-gray-500 text-xs font-normal">(plusieurs possibles)</span>
           </label>
-          <input
-            type="text"
-            id="categorie"
-            name="categorie"
-            value={formData.categorie}
-            onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black transition-colors"
-            placeholder="Ex: Électronique"
-          />
+          
+          {/* Catégories sélectionnées */}
+          {selectedCategories.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-3">
+              {selectedCategories.map((cat, index) => (
+                <span
+                  key={index}
+                  className="inline-flex items-center gap-1 px-3 py-1 bg-black text-white text-sm rounded-full"
+                >
+                  <Tag className="w-3 h-3" />
+                  {cat}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCategories(selectedCategories.filter((_, i) => i !== index))}
+                    className="ml-1 hover:text-gray-300"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Liste déroulante des catégories */}
+          <div className="mb-3">
+            <select
+              onChange={(e) => {
+                const value = e.target.value
+                if (value && !selectedCategories.includes(value)) {
+                  setSelectedCategories([...selectedCategories, value])
+                }
+                e.target.value = '' // Réinitialiser la sélection
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black transition-colors"
+            >
+              <option value="">Sélectionner une catégorie...</option>
+              {categories.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Ajouter une catégorie manuellement */}
+          {!showNewCategoryInput ? (
+            <button
+              type="button"
+              onClick={() => setShowNewCategoryInput(true)}
+              className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
+            >
+              <Plus className="w-4 h-4" />
+              Ajouter une catégorie manuellement
+            </button>
+          ) : (
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newCategory}
+                onChange={(e) => setNewCategory(e.target.value)}
+                placeholder="Nom de la catégorie"
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-black transition-colors"
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && newCategory.trim()) {
+                    e.preventDefault()
+                    if (!selectedCategories.includes(newCategory.trim())) {
+                      setSelectedCategories([...selectedCategories, newCategory.trim()])
+                    }
+                    setNewCategory('')
+                    setShowNewCategoryInput(false)
+                  }
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (newCategory.trim() && !selectedCategories.includes(newCategory.trim())) {
+                    setSelectedCategories([...selectedCategories, newCategory.trim()])
+                  }
+                  setNewCategory('')
+                  setShowNewCategoryInput(false)
+                }}
+                className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 text-sm"
+              >
+                Ajouter
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setNewCategory('')
+                  setShowNewCategoryInput(false)
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+              >
+                Annuler
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Marque */}
@@ -333,9 +500,29 @@ export default function AddProductForm({ onSuccess }: AddProductFormProps) {
 
         {/* Description SEO */}
         <div className="sm:col-span-2">
-          <label htmlFor="description_seo" className="block text-sm font-medium text-gray-700 mb-1.5">
-            Description SEO (optionnel)
-          </label>
+          <div className="flex items-center justify-between mb-1.5">
+            <label htmlFor="description_seo" className="block text-sm font-medium text-gray-700">
+              Description SEO (optionnel)
+            </label>
+            <button
+              type="button"
+              onClick={handleGenerateSEO}
+              disabled={generatingSEO || !formData.nom.trim()}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm bg-black text-white rounded-lg hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+            >
+              {generatingSEO ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Génération...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4" />
+                  Générer automatiquement
+                </>
+              )}
+            </button>
+          </div>
           <textarea
             id="description_seo"
             name="description_seo"

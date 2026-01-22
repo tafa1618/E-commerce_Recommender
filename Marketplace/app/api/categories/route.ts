@@ -3,23 +3,17 @@ import { NextRequest, NextResponse } from 'next/server'
 const API_BASE_URL = process.env.MARKETPLACE_API_URL || 'http://localhost:8001'
 
 /**
- * GET /api/categories-phares
- * Récupère les catégories phares depuis le backend
+ * GET /api/categories
+ * Récupère la liste des catégories disponibles
  */
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams
-    const limit = searchParams.get('limit') || '6'
-
-    const url = new URL(`${API_BASE_URL}/api/marketplace/categories-phares`)
-    url.searchParams.set('limit', limit)
-
-    const response = await fetch(url.toString(), {
+    const response = await fetch(`${API_BASE_URL}/api/marketplace/categories`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
       },
-      next: { revalidate: 300 }, // Cache pendant 5 minutes
+      next: { revalidate: 3600 }, // Cache pendant 1 heure
     })
 
     if (!response.ok) {
@@ -29,10 +23,11 @@ export async function GET(request: NextRequest) {
     const data = await response.json()
     return NextResponse.json(data)
   } catch (error) {
-    console.error('Error fetching featured categories:', error)
+    console.error('Error fetching categories:', error)
     return NextResponse.json(
       { 
         success: false, 
+        categories: [],
         error: error instanceof Error ? error.message : 'Erreur lors de la récupération des catégories' 
       },
       { status: 500 }

@@ -20,16 +20,47 @@ interface Product {
 async function getProduct(id: string): Promise<Product | null> {
   try {
     const apiUrl = process.env.BACKEND_API_URL || 'http://localhost:8000'
+    
+    // Essayer d'abord de récupérer directement le produit par ID
+    try {
+      const directRes = await fetch(`${apiUrl}/api/marketplace/products/${id}`, {
+        next: { revalidate: 60 },
+      })
+      
+      if (directRes.ok) {
+        const directData = await directRes.json()
+        if (directData.success && directData.product) {
+          return directData.product as Product
+        }
+      }
+    } catch (directError) {
+      console.log('Direct fetch failed, trying list method:', directError)
+    }
+    
+    // Fallback : récupérer tous les produits actifs et chercher
     const res = await fetch(`${apiUrl}/api/marketplace/products?status=active`, {
       next: { revalidate: 60 },
     })
 
     if (!res.ok) {
+      console.error(`❌ API error: ${res.status} ${res.statusText}`)
       return null
     }
 
     const data = await res.json()
+    console.log(`📦 ${data.produits?.length || 0} produits récupérés`)
     const product = (data.produits || []).find((p: Product) => p.product_id === id)
+    
+    if (!product) {
+      console.error(`❌ Produit ${id} non trouvé dans la liste des produits actifs`)
+      // Afficher quelques IDs pour déboguer
+      if (data.produits && data.produits.length > 0) {
+        console.log(`📋 IDs disponibles (premiers 5): ${data.produits.slice(0, 5).map((p: Product) => p.product_id).join(', ')}...`)
+      }
+    } else {
+      console.log(`✅ Produit trouvé dans la liste: ${id}`)
+    }
+    
     return product || null
   } catch (error) {
     console.error('Error fetching product:', error)

@@ -47,7 +47,12 @@ export default function AdminProductsList() {
       }
       
       const data = await response.json()
-      setProducts(data.produits || [])
+      const produits = data.produits || []
+      console.log(`📦 Produits reçus: ${produits.length}`)
+      if (produits.length > 0) {
+        console.log(`🔍 Premier produit - ID: "${produits[0].product_id}"`, produits[0])
+      }
+      setProducts(produits)
     } catch (err: any) {
       console.error('Erreur chargement produits:', err)
       setError(err.message || 'Erreur lors du chargement des produits')
@@ -57,16 +62,48 @@ export default function AdminProductsList() {
   }
 
   const handleDelete = async (productId: string) => {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer ce produit ?')) {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer ce produit ? Cette action est irréversible.')) {
       return
     }
 
     try {
-      // TODO: Implémenter l'endpoint de suppression
-      console.log('Supprimer produit:', productId)
-      // Après suppression, recharger les produits
+      console.log(`🗑️ Suppression du produit: ${productId}`)
+      console.log(`🔍 Type de productId: ${typeof productId}`)
+      console.log(`🔍 Longueur productId: ${productId?.length}`)
+      console.log(`🔍 ProductId complet: "${productId}"`)
+      
+      const url = `/api/products/${productId}`
+      console.log(`🌐 URL complète: ${url}`)
+      
+      const response = await fetch(url, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      console.log(`📡 Réponse suppression: ${response.status} ${response.statusText}`)
+
+      if (!response.ok) {
+        let errorData = {}
+        try {
+          errorData = await response.json()
+          console.error('❌ Erreur détaillée:', errorData)
+        } catch (e) {
+          const text = await response.text()
+          console.error('❌ Erreur (texte):', text)
+          throw new Error(`Erreur ${response.status}: ${text || response.statusText}`)
+        }
+        throw new Error(errorData.error || errorData.detail || `Erreur ${response.status}: ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      console.log('✅ Produit supprimé avec succès:', data)
+
+      // Recharger les produits après suppression
       fetchProducts()
     } catch (err: any) {
+      console.error('❌ Erreur suppression:', err)
       alert('Erreur lors de la suppression: ' + err.message)
     }
   }

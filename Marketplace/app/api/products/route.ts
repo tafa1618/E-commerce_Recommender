@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const API_BASE_URL = process.env.BACKEND_API_URL || 'http://localhost:8000'
+const API_BASE_URL = process.env.MARKETPLACE_API_URL || 'http://localhost:8001'
 
 /**
  * GET /api/products
