@@ -4,6 +4,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { ShoppingCart, Heart, Share2, Check, Star } from 'lucide-react'
+import { useSessionId } from '@/hooks/useSessionId'
 
 interface Product {
   product_id: string
@@ -27,9 +28,12 @@ interface RelatedProduct {
 }
 
 export default function ProductDetail({ product }: { product: Product }) {
+  const sessionId = useSessionId()
   const [relatedProducts, setRelatedProducts] = useState<RelatedProduct[]>([])
   const [loading, setLoading] = useState(true)
   const [isFavorite, setIsFavorite] = useState(false)
+  const [addingToCart, setAddingToCart] = useState(false)
+  const [cartMessage, setCartMessage] = useState<string | null>(null)
 
   // Charger les produits similaires (cross-selling)
   useEffect(() => {
@@ -56,9 +60,45 @@ export default function ProductDetail({ product }: { product: Product }) {
     }
   }, [product])
 
-  const handleAddToCart = () => {
-    // TODO: Implémenter l'ajout au panier
-    console.log('Ajouter au panier:', product.product_id)
+  const handleAddToCart = async () => {
+    if (!sessionId) {
+      console.error('Session ID non disponible')
+      return
+    }
+
+    setAddingToCart(true)
+    setCartMessage(null)
+
+    try {
+      const response = await fetch('/api/cart/add', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          product_id: product.product_id,
+          quantite: 1,
+          session_id: sessionId,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || 'Erreur lors de l\'ajout au panier')
+      }
+
+      const data = await response.json()
+      setCartMessage('✅ Produit ajouté au panier !')
+      
+      // Masquer le message après 3 secondes
+      setTimeout(() => setCartMessage(null), 3000)
+    } catch (err: any) {
+      console.error('Erreur ajout au panier:', err)
+      setCartMessage('❌ Erreur: ' + (err.message || 'Impossible d\'ajouter au panier'))
+      setTimeout(() => setCartMessage(null), 3000)
+    } finally {
+      setAddingToCart(false)
+    }
   }
 
   const handleShare = () => {
@@ -129,14 +169,35 @@ export default function ProductDetail({ product }: { product: Product }) {
                 )}
               </div>
 
+              {/* Message panier */}
+              {cartMessage && (
+                <div className={`mb-4 p-3 rounded-lg text-sm font-medium ${
+                  cartMessage.startsWith('✅') 
+                    ? 'bg-green-50 text-green-800 border border-green-200' 
+                    : 'bg-red-50 text-red-800 border border-red-200'
+                }`}>
+                  {cartMessage}
+                </div>
+              )}
+
               {/* Actions - empilées sur mobile */}
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-6 sm:mb-8">
                 <button
                   onClick={handleAddToCart}
-                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 sm:px-8 sm:py-4 bg-black text-white text-sm sm:text-base font-semibold rounded-lg active:bg-gray-800 transition-colors touch-manipulation"
+                  disabled={addingToCart || !sessionId}
+                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 sm:px-8 sm:py-4 bg-black text-white text-sm sm:text-base font-semibold rounded-lg active:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors touch-manipulation"
                 >
-                  <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" />
-                  Ajouter au panier
+                  {addingToCart ? (
+                    <>
+                      <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Ajout...
+                    </>
+                  ) : (
+                    <>
+                      <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" />
+                      Ajouter au panier
+                    </>
+                  )}
                 </button>
                 <div className="flex gap-3 sm:gap-4">
                   <button

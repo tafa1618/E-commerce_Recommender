@@ -104,6 +104,20 @@ def init_marketplace_db():
         )
     """)
     
+    # Table panier (session-based)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS panier (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT NOT NULL,
+            product_id TEXT NOT NULL,
+            quantite INTEGER DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (product_id) REFERENCES produits_marketplace(product_id) ON DELETE CASCADE,
+            UNIQUE(session_id, product_id)
+        )
+    """)
+    
     # Index pour performance et requêtes ML
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_product_id ON produits_marketplace(product_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_status ON produits_marketplace(status)")
@@ -115,6 +129,8 @@ def init_marketplace_db():
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_categories_slug ON categories(slug)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_produit_categories_product ON produit_categories(product_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_produit_categories_category ON produit_categories(category_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_panier_session ON panier(session_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_panier_product ON panier(product_id)")
     
     # Insérer les catégories par défaut
     categories_default = [
@@ -825,6 +841,209 @@ def supprimer_produit(product_id: str) -> bool:
         
     except Exception as e:
         print(f"❌ Erreur suppression produit {product_id}: {e}")
+        conn.rollback()
+        return False
+    finally:
+        conn.close()
+
+
+# =========================
+# FONCTIONS POUR LE PANIER
+# =========================
+
+def ajouter_au_panier(session_id: str, product_id: str, quantite: int = 1) -> bool:
+    """
+    Ajoute un produit au panier
+    
+    Args:
+        session_id: ID de session utilisateur
+        product_id: ID du produit
+        quantite: Quantité à ajouter (défaut: 1)
+        
+    Returns:
+        True si succès, False sinon
+    """
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    try:
+        # Vérifier que le produit existe
+        cursor.execute("SELECT product_id FROM produits_marketplace WHERE product_id = ?", (product_id,))
+        if not cursor.fetchone():
+            print(f"❌ Produit {product_id} non trouvé")
+            return False
+        
+        # Vérifier si le produit est déjà dans le panier
+        cursor.execute("SELECT id, quantite FROM panier WHERE session_id = ? AND product_id = ?", (session_id, product_id))
+        existing = cursor.fetchone()
+        
+        if existing:
+            # Mettre à jour la quantité
+            new_quantite = existing[1] + quantite
+            cursor.execute("""
+                UPDATE panier 
+                SET quantite = ?, updated_at = CURRENT_TIMESTAMP 
+                WHERE session_id = ? AND product_id = ?
+            """, (new_quantite, session_id, product_id))
+        else:
+            # Ajouter au panier
+            cursor.execute("""
+                INSERT INTO panier (session_id, product_id, quantite)
+                VALUES (?, ?, ?)
+            """, (session_id, product_id, quantite))
+        
+        conn.commit()
+        print(f"✅ Produit {product_id} ajouté au panier (session: {session_id})")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Erreur ajout au panier: {e}")
+        conn.rollback()
+        return False
+    finally:
+        conn.close()
+
+
+def get_panier(session_id: str) -> List[Dict]:
+    """
+    Récupère le panier d'un utilisateur
+    
+    Args:
+        session_id: ID de session utilisateur
+        
+    Returns:
+        Liste des produits dans le panier avec leurs informations
+    """
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            SELECT 
+                p.product_id,
+                p.quantite,
+                pm.nom,
+                pm.prix,
+                pm.prix_texte,
+                pm.image,
+                pm.categorie,
+                pm.marque
+            FROM panier p
+            JOIN produits_marketplace pm ON p.product_id = pm.product_id
+            WHERE p.session_id = ?
+            ORDER BY p.created_at DESC
+        """, (session_id,))
+        
+        rows = cursor.fetchall()
+        panier = []
+        
+        for row in rows:
+            panier.append({
+                'product_id': row[0],
+                'quantite': row[1],
+                'nom': row[2],
+                'prix': row[3],
+                'prix_texte': row[4],
+                'image': row[5],
+                'categorie': row[6],
+                'marque': row[7],
+                'sous_total': row[3] * row[1]  # Prix * Quantité
+            })
+        
+        return panier
+        
+    except Exception as e:
+        print(f"❌ Erreur récupération panier: {e}")
+        return []
+    finally:
+        conn.close()
+
+
+def modifier_quantite_panier(session_id: str, product_id: str, quantite: int) -> bool:
+    """
+    Modifie la quantité d'un produit dans le panier
+    
+    Args:
+        session_id: ID de session utilisateur
+        product_id: ID du produit
+        quantite: Nouvelle quantité (0 pour supprimer)
+        
+    Returns:
+        True si succès, False sinon
+    """
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    try:
+        if quantite <= 0:
+            # Supprimer du panier
+            cursor.execute("DELETE FROM panier WHERE session_id = ? AND product_id = ?", (session_id, product_id))
+        else:
+            # Mettre à jour la quantité
+            cursor.execute("""
+                UPDATE panier 
+                SET quantite = ?, updated_at = CURRENT_TIMESTAMP 
+                WHERE session_id = ? AND product_id = ?
+            """, (quantite, session_id, product_id))
+        
+        conn.commit()
+        return cursor.rowcount > 0
+        
+    except Exception as e:
+        print(f"❌ Erreur modification panier: {e}")
+        conn.rollback()
+        return False
+    finally:
+        conn.close()
+
+
+def supprimer_du_panier(session_id: str, product_id: str) -> bool:
+    """
+    Supprime un produit du panier
+    
+    Args:
+        session_id: ID de session utilisateur
+        product_id: ID du produit
+        
+    Returns:
+        True si succès, False sinon
+    """
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("DELETE FROM panier WHERE session_id = ? AND product_id = ?", (session_id, product_id))
+        conn.commit()
+        return cursor.rowcount > 0
+        
+    except Exception as e:
+        print(f"❌ Erreur suppression panier: {e}")
+        conn.rollback()
+        return False
+    finally:
+        conn.close()
+
+
+def vider_panier(session_id: str) -> bool:
+    """
+    Vide complètement le panier d'un utilisateur
+    
+    Args:
+        session_id: ID de session utilisateur
+        
+    Returns:
+        True si succès, False sinon
+    """
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("DELETE FROM panier WHERE session_id = ?", (session_id,))
+        conn.commit()
+        return True
+        
+    except Exception as e:
+        print(f"❌ Erreur vidage panier: {e}")
         conn.rollback()
         return False
     finally:

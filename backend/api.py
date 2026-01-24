@@ -1167,36 +1167,11 @@ async def validate_products(request: ValidateProductsRequest):
 # =========================
 
 # Les routes marketplace ont été supprimées et déplacées vers marketplace-backend
-    
-    Args:
-        limit: Nombre de catégories à retourner
-        
-    Returns:
-        Liste des catégories phares avec statistiques
-    """
-    try:
-        categories = get_categories_phares(limit=limit or 6)
-        return {
-            "success": True,
-            "categories": categories,
-            "count": len(categories)
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération: {str(e)}")
 
 
 @app.get("/api/marketplace/categories/{categorie}/produits")
 async def get_products_by_category(categorie: str, limit: Optional[int] = 4):
-    """
-    Récupère les produits d'une catégorie spécifique.
-    
-    Args:
-        categorie: Nom de la catégorie
-        limit: Nombre de produits à retourner
-        
-    Returns:
-        Liste des produits de la catégorie
-    """
+    # Récupère les produits d'une catégorie spécifique pour une catégorie donnée
     try:
         produits = get_produits_par_categorie(categorie, limit=limit or 4)
         return {
@@ -1211,16 +1186,12 @@ async def get_products_by_category(categorie: str, limit: Optional[int] = 4):
 
 @app.post("/api/marketplace/publish-product")
 async def publish_product_marketplace(request: PublishProductRequest):
-    """
-    Publie un produit sur le marketplace.
-    Télécharge automatiquement les images depuis les URLs externes.
-    
-    Args:
-        request: Requête contenant les données du produit
-        
-    Returns:
-        ID du produit publié
-    """
+    # Publie un produit sur le marketplace.
+    # Télécharge automatiquement les images depuis les URLs externes.
+    # Args:
+    #   request: Requête contenant les données du produit
+    # Returns:
+    #   ID du produit publié
     try:
         produit = request.produit.copy()
         image_url = produit.get('image')
@@ -1272,15 +1243,11 @@ async def publish_product_marketplace(request: PublishProductRequest):
 
 @app.get("/api/marketplace/products/{product_id}", tags=["Marketplace - Produits"])
 async def get_product_by_id(product_id: str):
-    """
-    Récupère un produit par son ID
-    
-    Args:
-        product_id: ID du produit
-        
-    Returns:
-        Le produit avec toutes ses données
-    """
+    # Récupère un produit par son ID
+    # Args:
+    #   product_id: ID du produit
+    # Returns:
+    #   Le produit avec toutes ses données
     try:
         print(f"🔍 Récupération du produit: {product_id}")
         produit = get_produit_by_id(product_id)
@@ -1306,16 +1273,12 @@ class UpdateStatusRequest(BaseModel):
 
 @app.patch("/api/marketplace/products/{product_id}/status", tags=["Marketplace - Produits"])
 async def update_product_status(product_id: str, request: UpdateStatusRequest):
-    """
-    Modifie uniquement le statut d'un produit
-    
-    Args:
-        product_id: ID du produit à modifier
-        request: UpdateStatusRequest avec 'status' (active, inactive, draft, archived)
-        
-    Returns:
-        Confirmation de la modification
-    """
+    # Modifie uniquement le statut d'un produit
+    # Args:
+    #   product_id: ID du produit à modifier
+    #   request: UpdateStatusRequest avec 'status' (active, inactive, draft, archived)
+    # Returns:
+    #   Confirmation de la modification
     try:
         print(f"🔍 Backend: Modification du statut pour le produit {product_id}")
         print(f"📝 Statut reçu: {request.status}")
@@ -1359,15 +1322,11 @@ async def update_product_status(product_id: str, request: UpdateStatusRequest):
 
 @app.delete("/api/marketplace/products/{product_id}", tags=["Marketplace - Produits"])
 async def delete_product_by_id(product_id: str):
-    """
-    Supprime un produit du marketplace
-    
-    Args:
-        product_id: ID du produit à supprimer
-        
-    Returns:
-        Confirmation de la suppression
-    """
+    # Supprime un produit du marketplace
+    # Args:
+    #   product_id: ID du produit à supprimer
+    # Returns:
+    #   Confirmation de la suppression
     try:
         print(f"🗑️ Backend: Suppression du produit {product_id}")
         
@@ -1394,16 +1353,12 @@ async def delete_product_by_id(product_id: str):
 
 @app.put("/api/marketplace/products/{product_id}", tags=["Marketplace - Produits"])
 async def update_product_by_id(product_id: str, request: PublishProductRequest):
-    """
-    Modifie un produit existant
-    
-    Args:
-        product_id: ID du produit à modifier
-        request: Données du produit à modifier
-        
-    Returns:
-        Confirmation de la modification
-    """
+    # Modifie un produit existant
+    # Args:
+    #   product_id: ID du produit à modifier
+    #   request: Données du produit à modifier
+    # Returns:
+    #   Confirmation de la modification
     try:
         # Vérifier que le produit existe
         existing = get_produit_by_id(product_id)
@@ -1447,19 +1402,15 @@ async def get_products_marketplace_api(
     categorie: Optional[str] = None,
     search: Optional[str] = None
 ):
-    """
-    Récupère les produits du marketplace avec pagination et recherche
-    
-    Args:
-        status: Statut des produits (active, draft, archived)
-        limit: Nombre de produits à retourner
-        offset: Nombre de produits à ignorer (pour pagination)
-        categorie: Filtrer par catégorie
-        search: Recherche textuelle dans nom, description, mots-clés
-        
-    Returns:
-        Dict avec produits, total et count
-    """
+    # Récupère les produits du marketplace avec pagination et recherche
+    # Args:
+    #   status: Statut des produits (active, draft, archived)
+    #   limit: Nombre de produits à retourner
+    #   offset: Nombre de produits à ignorer (pour pagination)
+    #   categorie: Filtrer par catégorie
+    #   search: Recherche textuelle dans nom, description, mots-clés
+    # Returns:
+    #   Dict avec produits, total et count
     try:
         result = get_produits_marketplace(
             status=status, 
@@ -1491,16 +1442,12 @@ async def get_products_marketplace_api(
 
 @app.post("/api/marketplace/publish-products-batch")
 async def publish_products_batch_marketplace(request: List[PublishProductRequest]):
-    """
-    Publie plusieurs produits sur le marketplace en batch.
-    Télécharge automatiquement les images depuis les URLs externes.
-    
-    Args:
-        request: Liste de requêtes contenant les données des produits
-        
-    Returns:
-        Liste des IDs des produits publiés
-    """
+    # Publie plusieurs produits sur le marketplace en batch.
+    # Télécharge automatiquement les images depuis les URLs externes.
+    # Args:
+    #   request: Liste de requêtes contenant les données des produits
+    # Returns:
+    #   Liste des IDs des produits publiés
     try:
         product_ids = []
         images_downloaded = 0
@@ -1545,15 +1492,11 @@ async def publish_products_batch_marketplace(request: List[PublishProductRequest
 
 @app.post("/api/marketplace/track-event")
 async def track_event_marketplace(request: Dict):
-    """
-    Enregistre un événement de tracking pour le ML
-    
-    Args:
-        request: Données de l'événement (product_id, event_type, etc.)
-        
-    Returns:
-        Confirmation de l'enregistrement
-    """
+    # Enregistre un événement de tracking pour le ML
+    # Args:
+    #   request: Données de l'événement (product_id, event_type, etc.)
+    # Returns:
+    #   Confirmation de l'enregistrement
     try:
         enregistrer_evenement(
             product_id=request.get("product_id"),

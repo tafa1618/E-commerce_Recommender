@@ -2,7 +2,9 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
+import { useState } from 'react'
 import { ShoppingCart, Star, Check } from 'lucide-react'
+import { useSessionId } from '@/hooks/useSessionId'
 
 interface Product {
   product_id: string
@@ -23,15 +25,50 @@ interface ShopGridProps {
 }
 
 export default function ShopGrid({ products, onAddToCart }: ShopGridProps) {
-  const handleAddToCart = (e: React.MouseEvent, productId: string) => {
+  const sessionId = useSessionId()
+  const [addingProductId, setAddingProductId] = useState<string | null>(null)
+
+  const handleAddToCart = async (e: React.MouseEvent, productId: string) => {
     e.preventDefault()
     e.stopPropagation()
     
     if (onAddToCart) {
       onAddToCart(productId)
-    } else {
-      // TODO: Implémenter l'ajout au panier par défaut
-      console.log('Ajouter au panier:', productId)
+      return
+    }
+
+    if (!sessionId) {
+      console.error('Session ID non disponible')
+      return
+    }
+
+    setAddingProductId(productId)
+
+    try {
+      const response = await fetch('/api/cart/add', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          product_id: productId,
+          quantite: 1,
+          session_id: sessionId,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || 'Erreur lors de l\'ajout au panier')
+      }
+
+      // Succès - notification visuelle optionnelle
+      console.log('✅ Produit ajouté au panier')
+    } catch (err: any) {
+      console.error('Erreur ajout au panier:', err)
+      alert('Erreur: ' + (err.message || 'Impossible d\'ajouter au panier'))
+    } finally {
+      setAddingProductId(null)
     }
   }
 
@@ -123,10 +160,20 @@ export default function ShopGrid({ products, onAddToCart }: ShopGridProps) {
             {/* Bouton CTA - Optimisé pour la vente */}
             <button
               onClick={(e) => handleAddToCart(e, product.product_id)}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 sm:py-3 bg-black text-white text-sm sm:text-base font-semibold rounded-lg hover:bg-gray-800 active:bg-gray-900 transition-colors touch-manipulation"
+              disabled={addingProductId === product.product_id}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 sm:py-3 bg-black text-white text-sm sm:text-base font-semibold rounded-lg hover:bg-gray-800 active:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors touch-manipulation"
             >
-              <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span>Ajouter</span>
+              {addingProductId === product.product_id ? (
+                <>
+                  <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>Ajout...</span>
+                </>
+              ) : (
+                <>
+                  <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span>Ajouter</span>
+                </>
+              )}
             </button>
           </div>
         </div>

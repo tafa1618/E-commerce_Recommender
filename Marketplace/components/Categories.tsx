@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { useState, useEffect } from 'react'
+import { useSessionId } from '@/hooks/useSessionId'
 
 interface Category {
   nom: string
@@ -25,12 +26,14 @@ interface Product {
 type FilterType = 'nouveautes' | 'mieux-vendus' | 'tendances'
 
 export default function Categories() {
+  const sessionId = useSessionId()
   const [categories, setCategories] = useState<Category[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [products, setProducts] = useState<Product[]>([])
   const [activeFilter, setActiveFilter] = useState<FilterType>('nouveautes')
   const [loading, setLoading] = useState(true)
   const [subCategories, setSubCategories] = useState<string[]>([])
+  const [addingProductId, setAddingProductId] = useState<string | null>(null)
 
   // Catégories mockées pour le développement
   const mockCategories: Category[] = [
@@ -459,13 +462,44 @@ export default function Categories() {
                         {product.prix_texte || `${product.prix} CFA`}
                       </p>
                       <button
-                        className="w-full py-1.5 sm:py-2 text-xs font-semibold uppercase border-2 border-black active:bg-black active:text-white transition-colors touch-manipulation"
-                        onClick={() => {
-                          // TODO: Ajouter au panier
-                          console.log('Ajouter au panier:', product.product_id)
+                        className="w-full py-1.5 sm:py-2 text-xs font-semibold uppercase border-2 border-black active:bg-black active:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors touch-manipulation"
+                        disabled={addingProductId === product.product_id}
+                        onClick={async () => {
+                          if (!sessionId) {
+                            console.error('Session ID non disponible')
+                            return
+                          }
+
+                          setAddingProductId(product.product_id)
+
+                          try {
+                            const response = await fetch('/api/cart/add', {
+                              method: 'POST',
+                              headers: {
+                                'Content-Type': 'application/json',
+                              },
+                              body: JSON.stringify({
+                                product_id: product.product_id,
+                                quantite: 1,
+                                session_id: sessionId,
+                              }),
+                            })
+
+                            if (!response.ok) {
+                              const errorData = await response.json().catch(() => ({}))
+                              throw new Error(errorData.error || 'Erreur lors de l\'ajout au panier')
+                            }
+
+                            console.log('✅ Produit ajouté au panier')
+                          } catch (err: any) {
+                            console.error('Erreur ajout au panier:', err)
+                            alert('Erreur: ' + (err.message || 'Impossible d\'ajouter au panier'))
+                          } finally {
+                            setAddingProductId(null)
+                          }
                         }}
                       >
-                        Ajouter
+                        {addingProductId === product.product_id ? 'Ajout...' : 'Ajouter'}
                       </button>
                     </div>
                   </div>

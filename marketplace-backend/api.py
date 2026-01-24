@@ -20,7 +20,12 @@ from marketplace_db import (
     supprimer_produit,
     get_produits_par_categorie,
     enregistrer_evenement,
-    get_all_categories
+    get_all_categories,
+    ajouter_au_panier,
+    get_panier,
+    modifier_quantite_panier,
+    supprimer_du_panier,
+    vider_panier
 )
 from image_downloader import download_image, copy_image_to_public
 
@@ -482,6 +487,170 @@ async def generate_seo_description(request: Dict):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur lors de la génération SEO: {str(e)}")
+
+
+# =========================
+# ROUTES PANIER
+# =========================
+
+class AddToCartRequest(BaseModel):
+    product_id: str
+    quantite: Optional[int] = 1
+    session_id: str
+
+
+@app.post("/api/marketplace/cart/add")
+async def add_to_cart(request: AddToCartRequest):
+    """
+    Ajoute un produit au panier
+    
+    Args:
+        request: AddToCartRequest avec product_id, quantite et session_id
+        
+    Returns:
+        Confirmation de l'ajout
+    """
+    try:
+        success = ajouter_au_panier(
+            session_id=request.session_id,
+            product_id=request.product_id,
+            quantite=request.quantite or 1
+        )
+        
+        if not success:
+            raise HTTPException(status_code=404, detail="Produit non trouvé")
+        
+        # Enregistrer l'événement pour le ML
+        enregistrer_evenement(
+            product_id=request.product_id,
+            event_type="add_to_cart",
+            session_id=request.session_id,
+            device_type=None,
+            source="web"
+        )
+        
+        return {
+            "success": True,
+            "message": "Produit ajouté au panier"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de l'ajout au panier: {str(e)}")
+
+
+@app.get("/api/marketplace/cart")
+async def get_cart(session_id: str):
+    """
+    Récupère le panier d'un utilisateur
+    
+    Args:
+        session_id: ID de session utilisateur
+        
+    Returns:
+        Liste des produits dans le panier
+    """
+    try:
+        panier = get_panier(session_id)
+        
+        # Calculer le total
+        total = sum(item['sous_total'] for item in panier)
+        
+        return {
+            "success": True,
+            "panier": panier,
+            "total": total,
+            "count": len(panier)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération du panier: {str(e)}")
+
+
+class UpdateCartRequest(BaseModel):
+    product_id: str
+    quantite: int
+    session_id: str
+
+
+@app.put("/api/marketplace/cart/update")
+async def update_cart(request: UpdateCartRequest):
+    """
+    Modifie la quantité d'un produit dans le panier
+    
+    Args:
+        request: UpdateCartRequest avec product_id, quantite et session_id
+        
+    Returns:
+        Confirmation de la modification
+    """
+    try:
+        success = modifier_quantite_panier(
+            session_id=request.session_id,
+            product_id=request.product_id,
+            quantite=request.quantite
+        )
+        
+        if not success:
+            raise HTTPException(status_code=404, detail="Produit non trouvé dans le panier")
+        
+        return {
+            "success": True,
+            "message": "Quantité mise à jour"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la modification: {str(e)}")
+
+
+@app.delete("/api/marketplace/cart/{product_id}")
+async def remove_from_cart(product_id: str, session_id: str):
+    """
+    Supprime un produit du panier
+    
+    Args:
+        product_id: ID du produit
+        session_id: ID de session utilisateur
+        
+    Returns:
+        Confirmation de la suppression
+    """
+    try:
+        success = supprimer_du_panier(session_id, product_id)
+        
+        if not success:
+            raise HTTPException(status_code=404, detail="Produit non trouvé dans le panier")
+        
+        return {
+            "success": True,
+            "message": "Produit retiré du panier"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la suppression: {str(e)}")
+
+
+@app.delete("/api/marketplace/cart")
+async def clear_cart(session_id: str):
+    """
+    Vide complètement le panier
+    
+    Args:
+        session_id: ID de session utilisateur
+        
+    Returns:
+        Confirmation du vidage
+    """
+    try:
+        success = vider_panier(session_id)
+        
+        return {
+            "success": True,
+            "message": "Panier vidé"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors du vidage: {str(e)}")
 
 
 if __name__ == "__main__":
