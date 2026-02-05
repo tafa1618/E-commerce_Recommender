@@ -1,0 +1,25 @@
+.admin-footer {
+    background: white;
+    border-top: 1px solid #e2e8f0;
+    padding: 1.5rem 0;
+    margin-top: auto;
+    font-size: 0.85rem;
+    color: #64748b;
+}
+
+.footer-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.system-status {
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.system-status.online {
+    color: #22c55e;
+}

@@ -19,18 +19,22 @@ interface Product {
 
 async function getProduct(id: string): Promise<Product | null> {
   try {
-    const apiUrl = process.env.BACKEND_API_URL || 'http://localhost:8000'
+    // On utilise désormais le backend marketplace dédié (port 8001)
+    const apiUrl = process.env.MARKETPLACE_API_URL || 'http://localhost:8001'
     
     // Essayer d'abord de récupérer directement le produit par ID
     try {
       const directRes = await fetch(`${apiUrl}/api/marketplace/products/${id}`, {
-        next: { revalidate: 60 },
+        // Pas de cache côté produit individuel pour éviter les incohérences
+        cache: 'no-store',
       })
       
       if (directRes.ok) {
         const directData = await directRes.json()
-        if (directData.success && directData.product) {
-          return directData.product as Product
+        // Le backend retourne { success, produit: {...} }
+        const produit = directData.produit || directData.product
+        if (directData.success && produit) {
+          return produit as Product
         }
       }
     } catch (directError) {
@@ -39,7 +43,7 @@ async function getProduct(id: string): Promise<Product | null> {
     
     // Fallback : récupérer tous les produits actifs et chercher
     const res = await fetch(`${apiUrl}/api/marketplace/products?status=active`, {
-      next: { revalidate: 60 },
+      cache: 'no-store',
     })
 
     if (!res.ok) {
