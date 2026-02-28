@@ -99,6 +99,46 @@ app.add_middleware(
 
 
 # =========================
+# ENDPOINTS DASHBOARD / AI CONTEXT
+# =========================
+
+@app.get("/api/dashboard/stats")
+def get_dashboard_stats():
+    """Returns general stats and AI market context."""
+    from brain.calendar import SenegalContext
+    sn = SenegalContext()
+    
+    # En situation réelle, on compterait en DB
+    return {
+        "products_total": 124, 
+        "products_draft": 5, 
+        "jumia_alerts": 12,
+        "campaigns_active": 2,
+        "market_context": sn.get_current_context(),
+        "marketing_boost": sn.get_marketing_boost_factor()
+    }
+
+@app.get("/api/brain/decisions")
+def get_ai_decisions(limit: int = 5):
+    """Returns recent AI decisions from memory."""
+    from brain.memory import DecisionMemory
+    mem = DecisionMemory()
+    decisions = mem.get_recent_decisions(limit=limit)
+    
+    formatted = []
+    for d in decisions:
+        formatted.append({
+            "id": d[0],
+            "trend_id": d[1],
+            "score": d[2],
+            "reasoning": d[3],
+            "action": d[4],
+            "context": json.loads(d[5]),
+            "timestamp": d[6]
+        })
+    return formatted
+
+# =========================
 # MODÈLES PYDANTIC
 # =========================
 class AnalyseRequest(BaseModel):
