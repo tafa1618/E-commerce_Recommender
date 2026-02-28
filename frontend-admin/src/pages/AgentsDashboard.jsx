@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Play, Activity, ShoppingBag, Search, Megaphone, CheckCircle, AlertTriangle, Terminal, Archive, Check, Loader } from 'lucide-react';
+import {
+    Play, Activity, ShoppingBag, Search,
+    Megaphone, CheckCircle, AlertTriangle,
+    Terminal, Archive, Check, Loader, Sparkles, Brain
+} from 'lucide-react';
 import './AgentsDashboard.css';
 
 const API_URL = 'http://localhost:8000';
@@ -52,19 +56,15 @@ export default function AgentsDashboard() {
         setLoading(true);
         setActiveAgent(name);
         setLastResult(null);
-        addLog(`🚀 Démarrage de l'agent ${name}...`, 'info');
+        addLog(`🚀 Module IA ${name} en cours...`, 'info');
 
         try {
             const response = await axios.post(`${API_URL}${endpoint}`, params);
-            addLog(`✅ Agent ${name} terminé avec succès.`, 'success');
+            addLog(`✅ Module ${name} opérationnel.`, 'success');
             setLastResult(response.data);
-            if (name.includes('Sourcing')) fetchDrafts(); // Refresh drafts if sourcing run
+            if (name.includes('Sourcing')) fetchDrafts();
         } catch (error) {
-            console.error(error);
-            addLog(`❌ Erreur Agent ${name}: ${error.message}`, 'error');
-            if (error.response) {
-                addLog(`Détails: ${JSON.stringify(error.response.data)}`, 'error');
-            }
+            addLog(`❌ Échec Module ${name}: ${error.message}`, 'error');
         } finally {
             setLoading(false);
             setActiveAgent(null);
@@ -73,141 +73,135 @@ export default function AgentsDashboard() {
 
     const agents = [
         {
-            id: 'seo',
-            name: 'Agent SEO & Contenu',
-            description: 'Scanne les produits sans description, génère du contenu SEO optimisé.',
-            icon: <Search className="w-8 h-8 text-blue-500" />,
-            endpoint: '/api/agents/seo/run',
+            id: 'sourcing',
+            name: 'Sourcing Prédictif',
+            description: 'Scanne Jumia & Trends pour trouver les pépites de demain au Sénégal.',
+            icon: <ShoppingBag className="w-8 h-8 text-orange-400" />,
+            endpoint: '/api/agents/sourcing/run',
             params: { limit: 5 },
-            color: 'border-blue-500'
+            color: 'card-orange'
         },
         {
-            id: 'price',
-            name: 'Agent Price Watch',
-            description: 'Compare nos prix avec Jumia (Local).',
-            icon: <Activity className="w-8 h-8 text-green-500" />,
-            endpoint: '/api/agents/price/run',
-            params: { limit: 10 },
-            color: 'border-green-500'
+            id: 'seo',
+            name: 'Intelligence Contenu',
+            description: 'Génère des descriptions SEO premium et fiches techniques WordPress.',
+            icon: <Search className="w-8 h-8 text-blue-400" />,
+            endpoint: '/api/agents/seo/run',
+            params: { limit: 5 },
+            color: 'card-blue'
         },
         {
             id: 'marketing',
-            name: 'Agent Marketing',
-            description: 'Crée des campagnes pubs pour les produits compétitifs.',
-            icon: <Megaphone className="w-8 h-8 text-purple-500" />,
+            name: 'Creative Ad Agent',
+            description: 'Génère les visuels et textes publicitaires Meta Ads (Brouillons).',
+            icon: <Megaphone className="w-8 h-8 text-indigo-400" />,
             endpoint: '/api/agents/marketing/run',
             params: {},
-            color: 'border-purple-500'
+            color: 'card-indigo'
         },
         {
-            id: 'sourcing',
-            name: 'Agent Sourcing (Smart)',
-            description: 'Scanne historique ventes -> Jumia -> Trends -> Drafts.',
-            icon: <ShoppingBag className="w-8 h-8 text-orange-500" />,
-            endpoint: '/api/agents/sourcing/run',
-            params: { limit: 5 },
-            color: 'border-orange-500'
+            id: 'price',
+            name: 'Market Watcher',
+            description: 'Surveille les prix concurrents et suggère des ajustements dynamiques.',
+            icon: <Activity className="w-8 h-8 text-emerald-400" />,
+            endpoint: '/api/agents/price/run',
+            params: { limit: 10 },
+            color: 'card-emerald'
         }
     ];
 
     return (
         <div className="agents-dashboard container">
-            <header className="dashboard-header">
-                <h1>🤖 Control Station IA</h1>
-                <p>Gérez vos agents et validez les produits sourcés.</p>
+            <header className="page-header premium-header-mini">
+                <div className="header-info">
+                    <span className="badge-ai">IA ORCHESTRATION</span>
+                    <h1>Station de Contrôle Agents</h1>
+                    <p className="text-muted">Supervisez l'intelligence autonome de votre commerce.</p>
+                </div>
             </header>
 
-            {/* Validation Section (Human in the Loop) */}
-            <section className="validation-section mb-8">
-                <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                    <CheckCircle className="text-orange-500" />
-                    Waiting Room (Validation Sourcing)
-                    {loadingDrafts && <Loader className="animate-spin" size={16} />}
-                </h2>
-
-                {drafts.length === 0 ? (
-                    <div className="bg-gray-50 p-6 rounded text-center text-gray-500">
-                        Aucun produit en attente de validation. Lancez l'Agent Sourcing !
-                    </div>
-                ) : (
-                    <div className="drafts-grid">
-                        {drafts.map(product => (
-                            <div key={product.product_id} className="draft-card">
-                                <img src={product.image} alt={product.nom} className="draft-img" />
-                                <div className="draft-info">
-                                    <h4>{product.nom}</h4>
-                                    <div className="draft-meta">
-                                        <span className="price">{product.prix} FCFA</span>
-                                        <span className="score">Trend: {product.validation_score}/100</span>
-                                    </div>
+            <div className="agents-layout">
+                {/* Main Control Panel */}
+                <div className="agents-main">
+                    <section className="agents-grid">
+                        {agents.map(agent => (
+                            <div key={agent.id} className={`agent-premium-card ${agent.color}`}>
+                                <div className="agent-icon-wrapper">
+                                    {agent.icon}
                                 </div>
-                                <div className="draft-actions">
-                                    <button
-                                        onClick={() => handleValidate(product.product_id, 'reject')}
-                                        className="btn-reject" title="Rejeter"
-                                    >
-                                        <Archive size={16} />
-                                    </button>
-                                    <button
-                                        onClick={() => handleValidate(product.product_id, 'publish')}
-                                        className="btn-validate" title="Valider & Publier"
-                                    >
-                                        <Check size={16} />
-                                    </button>
+                                <div className="agent-body">
+                                    <h3>{agent.name}</h3>
+                                    <p>{agent.description}</p>
                                 </div>
+                                <button
+                                    className={`btn-premium-run ${loading ? 'disabled' : ''}`}
+                                    onClick={() => runAgent(agent.name, agent.endpoint, agent.params)}
+                                    disabled={loading}
+                                >
+                                    {loading && activeAgent === agent.name ? (
+                                        <Loader className="animate-spin" size={18} />
+                                    ) : (
+                                        <>Lancer <Sparkles size={14} /></>
+                                    )}
+                                </button>
                             </div>
                         ))}
-                    </div>
-                )}
-            </section>
+                    </section>
 
-            <div className="agents-grid">
-                {agents.map(agent => (
-                    <div key={agent.id} className={`agent-card ${agent.color}`}>
-                        <div className="agent-icon">
-                            {agent.icon}
+                    {/* Console Section */}
+                    <section className="console-wrapper content-card">
+                        <div className="console-header">
+                            <h2><Terminal size={18} /> Logs Systèmes</h2>
+                            <button onClick={() => setLogs([])} className="text-xs text-muted">Vider</button>
                         </div>
-                        <div className="agent-info">
-                            <h3>{agent.name}</h3>
-                            <p>{agent.description}</p>
-                        </div>
-                        <button
-                            className={`btn-run ${loading ? 'disabled' : ''}`}
-                            onClick={() => runAgent(agent.name, agent.endpoint, agent.params)}
-                            disabled={loading}
-                        >
-                            {loading && activeAgent === agent.name ? (
-                                <span className="spinner">⌛ ...</span>
-                            ) : (
-                                <>
-                                    <Play size={16} /> Run
-                                </>
+                        <div className="console-body">
+                            {logs.length > 0 ? logs.map((log, i) => (
+                                <div key={i} className="log-line">{log}</div>
+                            )) : (
+                                <div className="text-muted italic">En attente d'activité...</div>
                             )}
-                        </button>
-                    </div>
-                ))}
-            </div>
-
-            <div className="dashboard-console">
-                <div className="console-section logs">
-                    <h3><Terminal size={18} /> Journal d'activités</h3>
-                    <div className="logs-container">
-                        {logs.map((log, index) => (
-                            <div key={index} className="log-entry">{log}</div>
-                        ))}
-                    </div>
+                        </div>
+                    </section>
                 </div>
 
-                <div className="console-section results">
-                    <h3>📊 Résultats Dernier Run</h3>
-                    <div className="results-container">
-                        {lastResult ? (
-                            <pre>{JSON.stringify(lastResult, null, 2)}</pre>
-                        ) : (
-                            <span className="text-muted">Aucun résultat.</span>
-                        )}
+                {/* Sidebar Validation Room */}
+                <aside className="agents-sidebar">
+                    <div className="content-card waiting-room">
+                        <div className="card-header">
+                            <h2><Brain size={20} className="text-orange-400" /> Validation IA</h2>
+                            {loadingDrafts && <Loader className="animate-spin" size={16} />}
+                        </div>
+
+                        <div className="drafts-vertical-list">
+                            {drafts.length === 0 ? (
+                                <div className="empty-drafts">
+                                    <ShoppingBag size={32} />
+                                    <p>Lancez le Sourcing pour trouver des produits.</p>
+                                </div>
+                            ) : (
+                                drafts.map(product => (
+                                    <div key={product.product_id} className="premium-draft-item">
+                                        <img src={product.image} alt={product.nom} />
+                                        <div className="draft-details">
+                                            <h4>{product.nom}</h4>
+                                            <div className="draft-badges">
+                                                <span className="badge-price">{product.prix} FCFA</span>
+                                                <span className="badge-score">Score: {product.validation_score}</span>
+                                            </div>
+                                            <div className="ai-reasoning-snippet">
+                                                💡 IA: Prêt pour le marché sénégalais.
+                                            </div>
+                                        </div>
+                                        <div className="draft-actions-mini">
+                                            <button onClick={() => handleValidate(product.product_id, 'reject')} className="btn-icon reject"><Archive size={14} /></button>
+                                            <button onClick={() => handleValidate(product.product_id, 'publish')} className="btn-icon validate"><Check size={14} /></button>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
                     </div>
-                </div>
+                </aside>
             </div>
         </div>
     );
