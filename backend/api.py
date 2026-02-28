@@ -70,8 +70,13 @@ from connectors.wp_connector import WooCommerceConnector
 
 app = FastAPI(title="E-commerce Recommender API", version="1.0.0")
 
-# Initialiser le connecteur WooCommerce
+# Initialiser le connecteur WooCommerce et l'Orchestrateur IA
 wc_connector = WooCommerceConnector()
+from brain.orchestrator import AIOrchestrator
+from brain.memory import DecisionMemory
+
+orchestrator = AIOrchestrator()
+memory = DecisionMemory()
 
 # Router séparé pour les routes avec {product_id} - Force l'enregistrement correct
 # Pas de prefix pour éviter les conflits avec la route générale
@@ -1522,16 +1527,28 @@ async def validate_product(product_id: str, action: str = "publish"):
             if product:
                 nom, prix, image, desc = product
                 
-                # 2. Préparer les données pour WooCommerce
+                # 2. Évaluation contextuelle par l'IA (Phase 4)
+                trend_eval = orchestrator.evaluate_trend({"id": str(product_id), "base_score": 75})
+                memory.log_decision(
+                    trend_id=str(product_id),
+                    score=trend_eval["final_score"],
+                    reasoning=trend_eval["reasoning"],
+                    action="publish",
+                    context=json.loads(trend_eval["timestamp"])
+                )
+                
+                # 3. Préparer les données pour WooCommerce (enrichies par l'IA si besoin)
+                description_finale = f"{desc}\n\n---\n💡 Analyse Tafa IA : {trend_eval['reasoning']}"
+                
                 wc_data = {
                     "name": nom,
                     "type": "simple",
                     "regular_price": str(prix),
-                    "description": desc or "Produit sourcé par Tafa IA",
+                    "description": description_finale,
                     "images": [{"src": image}] if image else []
                 }
                 
-                # 3. Push vers WooCommerce
+                # 4. Push vers WooCommerce
                 wc_result = wc_connector.publish_product(wc_data)
                 
                 if wc_result:
