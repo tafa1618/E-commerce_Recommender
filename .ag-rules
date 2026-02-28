@@ -1,0 +1,34 @@
+# PROJET TAFA MARKETPLACE - RÈGLES IA (.ag-rules)
+
+Ce fichier définit les règles strictes à suivre pour tout développement sur ce projet.
+
+## 1. Identité Visuelle & Design (NON NÉGOCIABLE)
+**Philosophie** : "Le Design doit être invisible pour laisser parler le Produit." (Style Jumia/Amazon).
+
+### Palette de Couleurs
+*   **Primaire (Confiance, Text, Header)** : `#131f35` (Bleu Nuit Profond).
+*   **Secondaire (Action, Prix, Promo)** : `#FF9900` (Orange Vif).
+*   **Arrière-plans** : Blanc (`#FFFFFF`) ou Gris Clair (`#F3F4F6`) UNIQUEMENT.
+*   ⛔ **INTERDIT** : Pas de fonds de sections violets, verts, sards. Les en-têtes de catégorie doivent être neutres (Blanc + Bordure).
+
+### Typographie
+*   **Police** : `Rubik` (déclarée dans tailwind.config.ts).
+*   **Titres** : Bold, Bleu Nuit.
+*   **Prix** : Bold, Orange ou Noir.
+
+## 2. Vocabulaire & Ton (Target: B2C)
+Le site s'adresse au consommateur final sénégalais.
+*   ✅ **À UTILISER** : "Boutique Officielle", "Ventes Flash", "Promos", "Livraison Rapide", "Commander".
+*   ⛔ **INTERDIT** : "Sourcing", "Import", "Alibaba", "Grossiste", "Douane", "Container".
+
+## 3. Structure Navigateur (Desktop)
+*   **Hero** : Layout 3 colonnes (Menu Gauche | Slider Centre | Services Droite).
+*   **Navigation** : Toujours garder la TopBar avec Recherche style Amazon.
+
+## 4. Tech Stack Check
+*   **CSS** : Tailwind CSS uniquement. Pas de CSS modules ou style in-line sauf exception animation.
+*   **Icons** : `lucide-react`.
+*   **Images** : Toujours utiliser des placeholders ou `generate_image` si besoin. Ne jamais laisser de liens cassés.
+
+---
+*Dernière mise à jour : Février 2026 (Refonte Style Jumia)*

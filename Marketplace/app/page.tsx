@@ -1,44 +1,33 @@
-import Hero from '@/components/Hero'
-import Features from '@/components/Features'
-import Categories from '@/components/Categories'
-import Products from '@/components/Products'
-import Testimonials from '@/components/Testimonials'
-import CTA from '@/components/CTA'
-import Header from '@/components/Header'
-import Footer from '@/components/Footer'
+import TopBar from '../components/layout/TopBar';
+import HeroSection from '../components/home/HeroSection';
+import Features from '../components/home/Features';
+import FlashDeals from '../components/home/FlashDeals';
+import ProductGrid from '../components/home/ProductGrid';
+import CategoryShowcase from '../components/home/CategoryShowcase';
+import Newsletter from '../components/home/Newsletter';
+import Footer from '../components/layout/Footer';
 
-async function getFeaturedProducts() {
-  try {
-    const apiUrl = process.env.BACKEND_API_URL || 'http://localhost:8000'
-    const res = await fetch(`${apiUrl}/api/marketplace/products?status=active&limit=4`, {
-      next: { revalidate: 60 },
-    })
-
-    if (!res.ok) {
-      return []
-    }
-
-    const data = await res.json()
-    return data.produits || []
-  } catch (error) {
-    console.error('Error fetching featured products:', error)
-    return []
-  }
-}
-
-export default async function Home() {
-  const featuredProducts = await getFeaturedProducts()
-
+export default function Home() {
   return (
-    <main className="min-h-screen bg-white">
-      <Header />
-      <Hero />
+    <main className="min-h-screen bg-bg-light">
+      <TopBar />
+      <HeroSection />
+
+      {/* Features strip below sliders */}
       <Features />
-      <Categories />
-      <Products products={featuredProducts} />
-      <Testimonials />
-      <CTA />
+
+      <FlashDeals />
+
+      {/* Category Showcases */}
+      <CategoryShowcase title="Univers Téléphonie & Tech" category="electronics" />
+      <CategoryShowcase title="Mode & Tendances" category="fashion" />
+      <CategoryShowcase title="Tout pour la Maison" category="home" />
+
+      <ProductGrid title="Recommandé pour vous" />
+
+      <Newsletter />
+
       <Footer />
     </main>
-  )
+  );
 }

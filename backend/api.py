@@ -66,8 +66,12 @@ from marketplace_db import (
     supprimer_produit,
     enregistrer_evenement
 )
+from connectors.wp_connector import WooCommerceConnector
 
 app = FastAPI(title="E-commerce Recommender API", version="1.0.0")
+
+# Initialiser le connecteur WooCommerce
+wc_connector = WooCommerceConnector()
 
 # Router séparé pour les routes avec {product_id} - Force l'enregistrement correct
 # Pas de prefix pour éviter les conflits avec la route générale
@@ -1511,8 +1515,35 @@ async def validate_product(product_id: str, action: str = "publish"):
         cursor = conn.cursor()
         
         if action == "publish":
-            # Passer en actif et clean up
-            cursor.execute("UPDATE produits_marketplace SET status='active', validated=1, published_at=CURRENT_TIMESTAMP WHERE product_id=?", (product_id,))
+            # 1. Récupérer les données du produit pour WooCommerce
+            cursor.execute("SELECT nom, prix, image, description_seo FROM produits_marketplace WHERE product_id=?", (product_id,))
+            product = cursor.fetchone()
+            
+            if product:
+                nom, prix, image, desc = product
+                
+                # 2. Préparer les données pour WooCommerce
+                wc_data = {
+                    "name": nom,
+                    "type": "simple",
+                    "regular_price": str(prix),
+                    "description": desc or "Produit sourcé par Tafa IA",
+                    "images": [{"src": image}] if image else []
+                }
+                
+                # 3. Push vers WooCommerce
+                wc_result = wc_connector.publish_product(wc_data)
+                
+                if wc_result:
+                    print(f"✅ Produit poussé vers WooCommerce : {wc_result.get('id')}")
+                    # Mettre à jour avec l'ID WooCommerce si nécessaire (features_json)
+                    cursor.execute("UPDATE produits_marketplace SET status='active', validated=1, published_at=CURRENT_TIMESTAMP WHERE product_id=?", (product_id,))
+                else:
+                    print(f"⚠️ Échec du push WooCommerce pour {product_id}, mais validation locale maintenue.")
+                    cursor.execute("UPDATE produits_marketplace SET status='active', validated=1, published_at=CURRENT_TIMESTAMP WHERE product_id=?", (product_id,))
+            else:
+                cursor.execute("UPDATE produits_marketplace SET status='active', validated=1, published_at=CURRENT_TIMESTAMP WHERE product_id=?", (product_id,))
+        
         elif action == "reject":
             cursor.execute("DELETE FROM produits_marketplace WHERE product_id=?", (product_id,))
             
