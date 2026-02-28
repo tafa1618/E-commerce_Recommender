@@ -417,16 +417,22 @@ function Marketing() {
   }
 
   return (
-    <div className="app">
-      <div className="container">
-        <h1>📢 Marketing - Campagnes Facebook Ads</h1>
+    <div className="app marketing-page">
+      <header className="page-header premium-header-mini">
+        <div className="header-info">
+          <span className="badge-ai">MARKETING ENGINE</span>
+          <h1>Ads & Creative Station</h1>
+          <p className="text-muted">Générez des campagnes Meta Ads percutantes pour le Sénégal.</p>
+        </div>
+      </header>
 
+      <div className="container">
         {/* Section sélection produits */}
-        <div className="marketing-section">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <h2 style={{ margin: 0 }}>1. Sélectionner des produits</h2>
+        <div className="marketing-section content-card">
+          <div className="card-header">
+            <h2>1. Sélectionner des produits</h2>
             <button
-              className="btn btn-secondary"
+              className="btn-premium-run text-xs"
               onClick={() => setShowManualAdd(!showManualAdd)}
             >
               {showManualAdd ? '✕ Fermer' : '+ Ajouter manuellement'}
@@ -667,8 +673,10 @@ function Marketing() {
         </div>
 
         {/* Section campagne */}
-        <div className="marketing-section" style={{ marginTop: '40px' }}>
-          <h2>2. Ma campagne ({campagneProduits.length} produits)</h2>
+        <div className="marketing-section content-card" style={{ marginTop: '40px' }}>
+          <div className="card-header">
+            <h2>2. Ma campagne ({campagneProduits.length} produits)</h2>
+          </div>
 
           {campagneProduits.length === 0 ? (
             <div className="info-message">
@@ -775,8 +783,10 @@ function Marketing() {
         </div>
 
         {/* Section SEO */}
-        <div className="marketing-section" style={{ marginTop: '40px' }}>
-          <h2>3. 🔍 Optimisation SEO - Description de Produit</h2>
+        <div className="marketing-section content-card" style={{ marginTop: '40px' }}>
+          <div className="card-header">
+            <h2>3. 🔍 Optimisation SEO</h2>
+          </div>
           <p style={{ color: '#666', marginBottom: '20px' }}>
             Entrez un nom de produit ou une description existante. Notre IA va l'améliorer pour le rendre unique, percutant et optimisé pour le SEO.
           </p>
