@@ -11,6 +11,8 @@ import sys
 import os
 import re
 import sqlite3
+import json
+import logging
 
 # Ajouter le répertoire parent au path pour importer les modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -87,7 +89,7 @@ marketplace_products_router = APIRouter(tags=["Marketplace - Produits"])
 # Configuration CORS pour permettre les requêtes depuis React
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001", "http://localhost:5173"],  # React dev servers
+    allow_origins=["*"],  # Plus permissif pour le développement local
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -1454,7 +1456,7 @@ async def track_event_marketplace(request: Dict):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run("api:app", host="0.0.0.0", port=8000, reload=True)
 
 # =========================
 # ENDPOINTS AGENTS (AUTOMATION)
