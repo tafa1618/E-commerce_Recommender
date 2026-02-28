@@ -74,9 +74,11 @@ app = FastAPI(title="E-commerce Recommender API", version="1.0.0")
 wc_connector = WooCommerceConnector()
 from brain.orchestrator import AIOrchestrator
 from brain.memory import DecisionMemory
+from agents.meta_ads_agent import MetaAdsAgent
 
 orchestrator = AIOrchestrator()
 memory = DecisionMemory()
+meta_agent = MetaAdsAgent()
 
 # Router séparé pour les routes avec {product_id} - Force l'enregistrement correct
 # Pas de prefix pour éviter les conflits avec la route générale
@@ -1553,6 +1555,21 @@ async def validate_product(product_id: str, action: str = "publish"):
                 
                 if wc_result:
                     print(f"✅ Produit poussé vers WooCommerce : {wc_result.get('id')}")
+                    
+                    # 5. Générer un brouillon Meta Ads (Phase 5)
+                    ad_draft = meta_agent.generate_ad_draft(
+                        product_data={"nom": nom, "image": image},
+                        evaluation_context=trend_eval
+                    )
+                    # Sauvegarder dans la mémoire pour l'admin
+                    memory.log_decision(
+                        trend_id=f"ADS_{product_id}",
+                        score=trend_eval["final_score"],
+                        reasoning=f"Ad Draft Generated: {ad_draft['campaign_name']}",
+                        action="ad_draft",
+                        context=ad_draft
+                    )
+                    
                     # Mettre à jour avec l'ID WooCommerce si nécessaire (features_json)
                     cursor.execute("UPDATE produits_marketplace SET status='active', validated=1, published_at=CURRENT_TIMESTAMP WHERE product_id=?", (product_id,))
                 else:
